@@ -110,37 +110,37 @@ export interface FloorPathResponse {
   segments: SegmentResponse[];
 }
 
-export type NodeType =
-  | "ENTRANCE"
+// POI 관련 타입
+export type PoiCategory =
+  | "CLASSROOM"
+  | "OFFICE"
+  | "RESTROOM"
+  | "EXIT"
   | "ELEVATOR"
   | "STAIRCASE"
-  | "RESTROOM"
-  | "ROOM"
-  | "INFORMATION"
-  | "EMERGENCY_EXIT"
   | "OTHER";
 
-export interface NodeResponse {
-  id: string;
-  floorId: string;
+export interface PoiResponse {
+  nodeId: string;
   name: string;
-  type: NodeType;
-  description: string;
-  position: Point3D;
-  createdAt: string;
-  updatedAt: string;
+  category: PoiCategory;
+  floorLevel: number;
+  floorName: string;
+  x: number;
+  y: number;
+  z: number;
 }
 
-export interface NodeCreateRequest {
+export interface PoiCreateRequest {
   name: string;
-  type: NodeType;
-  description?: string;
-  position: Point3D;
+  category: PoiCategory;
+  floorLevel: number;
+  x: number;
+  y: number;
+  z?: number;
 }
 
-export interface NodeUpdateRequest {
-  name?: string;
-  type?: NodeType;
-  description?: string;
-  position?: Point3D;
+export interface PoiRegisterRequest {
+  name: string;
+  category: PoiCategory;
 }

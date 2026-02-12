@@ -3,18 +3,15 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Grid } from "@react-three/drei";
 import * as THREE from "three";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useViewerStore, useNodeStore } from "@/stores";
-import { PointCloudRenderer } from "./PointCloudRenderer";
+import { useViewerStore, usePoiStore } from "@/stores";
 import { PathOverlay } from "./PathOverlay";
-import { NodeOverlay } from "./NodeOverlay";
-import { PendingNodeMarker } from "./PendingNodeMarker";
-import { PlacementRaycastPlane } from "./PlacementRaycastPlane";
+import { POIOverlay } from "./POIOverlay";
+import { PendingPOIMarker } from "./PendingPOIMarker";
 
 function CameraController() {
   const viewMode = useViewerStore((s) => s.viewMode);
   const floorPath = useViewerStore((s) => s.floorPath);
-  const pointCloudData = useViewerStore((s) => s.pointCloudData);
-  const isPlacementMode = useNodeStore((s) => s.isPlacementMode);
+  const isPlacementMode = usePoiStore((s) => s.isPlacementMode);
   const { camera } = useThree();
   const controlsRef = useRef<React.ComponentRef<typeof OrbitControls>>(null);
 
@@ -42,7 +39,7 @@ function CameraController() {
   }, [viewMode, camera]);
 
   useEffect(() => {
-    if (!floorPath && !pointCloudData) return;
+    if (!floorPath) return;
     if (!controlsRef.current) return;
 
     if (floorPath && floorPath.bounds) {
@@ -62,7 +59,72 @@ function CameraController() {
       controlsRef.current.target.set(cx, 0, cz);
       controlsRef.current.update();
     }
-  }, [floorPath, pointCloudData, camera, viewMode]);
+  }, [floorPath, camera, viewMode]);
+
+  // 키보드로 카메라 이동
+  useEffect(() => {
+    if (!controlsRef.current || isPlacementMode) return;
+
+    const panSpeed = 0.5;
+    const keysPressed = new Set<string>();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      keysPressed.add(e.key);
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      keysPressed.delete(e.key);
+    };
+
+    const animate = () => {
+      if (!controlsRef.current) return;
+      const controls = controlsRef.current;
+      let moved = false;
+
+      // 카메라의 방향 벡터 계산
+      const forward = new THREE.Vector3();
+      const right = new THREE.Vector3();
+
+      camera.getWorldDirection(forward);
+      forward.y = 0;
+      forward.normalize();
+
+      right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+      // WASD 또는 화살표 키로 이동
+      if (keysPressed.has("w") || keysPressed.has("W") || keysPressed.has("ArrowUp")) {
+        controls.target.addScaledVector(forward, panSpeed);
+        moved = true;
+      }
+      if (keysPressed.has("s") || keysPressed.has("S") || keysPressed.has("ArrowDown")) {
+        controls.target.addScaledVector(forward, -panSpeed);
+        moved = true;
+      }
+      if (keysPressed.has("a") || keysPressed.has("A") || keysPressed.has("ArrowLeft")) {
+        controls.target.addScaledVector(right, -panSpeed);
+        moved = true;
+      }
+      if (keysPressed.has("d") || keysPressed.has("D") || keysPressed.has("ArrowRight")) {
+        controls.target.addScaledVector(right, panSpeed);
+        moved = true;
+      }
+
+      if (moved) {
+        controls.update();
+      }
+    };
+
+    const animationId = setInterval(animate, 16); // ~60fps
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      clearInterval(animationId);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [camera, isPlacementMode]);
 
   return (
     <OrbitControls
@@ -71,8 +133,9 @@ function CameraController() {
       enableDamping
       dampingFactor={0.1}
       rotateSpeed={0.5}
-      zoomSpeed={1.2}
+      zoomSpeed={0.5}
       panSpeed={0.8}
+      enablePan={true}
       makeDefault
     />
   );
@@ -96,11 +159,9 @@ function SceneContent() {
         infiniteGrid
         position={[0, -0.01, 0]}
       />
-      <PointCloudRenderer />
       <PathOverlay />
-      <NodeOverlay />
-      <PendingNodeMarker />
-      <PlacementRaycastPlane />
+      <POIOverlay />
+      <PendingPOIMarker />
       <CameraController />
     </>
   );
@@ -116,15 +177,22 @@ function LoadingPlaceholder() {
 
 export function PointCloudViewer() {
   const selectedFloorId = useViewerStore((s) => s.selectedFloorId);
-  const isLoadingPointCloud = useViewerStore((s) => s.isLoadingPointCloud);
-  const isPlacementMode = useNodeStore((s) => s.isPlacementMode);
+  const isPlacementMode = usePoiStore((s) => s.isPlacementMode);
 
   if (!selectedFloorId) {
     return (
       <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20">
         <div className="text-center space-y-2">
           <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className="text-muted-foreground"
+            >
               <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
               <path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" />
             </svg>
@@ -132,23 +200,18 @@ export function PointCloudViewer() {
           <p className="text-sm text-muted-foreground">
             우측 패널에서 층을 선택하면
             <br />
-            3D 포인트클라우드를 확인할 수 있습니다.
+            3D 경로를 확인할 수 있습니다.
           </p>
         </div>
       </div>
     );
   }
 
-  if (isLoadingPointCloud) {
-    return (
-      <div className="flex-1 rounded-lg border overflow-hidden">
-        <LoadingPlaceholder />
-      </div>
-    );
-  }
-
   return (
-    <div className="flex-1 rounded-lg border overflow-hidden bg-zinc-950" style={{ cursor: isPlacementMode ? "crosshair" : undefined }}>
+    <div
+      className="flex-1 rounded-lg border overflow-hidden bg-zinc-950"
+      style={{ cursor: isPlacementMode ? "crosshair" : undefined }}
+    >
       <Suspense fallback={<LoadingPlaceholder />}>
         <Canvas
           camera={{ position: [5, 5, 5], fov: 60, near: 0.01, far: 1000 }}
@@ -157,7 +220,11 @@ export function PointCloudViewer() {
             toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: 1.2,
           }}
-          style={{ width: "100%", height: "100%", cursor: isPlacementMode ? "crosshair" : undefined }}
+          style={{
+            width: "100%",
+            height: "100%",
+            cursor: isPlacementMode ? "crosshair" : undefined,
+          }}
         >
           <SceneContent />
         </Canvas>

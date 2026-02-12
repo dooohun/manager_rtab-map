@@ -15,8 +15,8 @@ export type {
   FloorUpdateRequest,
   Bounds2D,
   FloorPathResponse,
-  NodeType,
-  NodeResponse,
-  NodeCreateRequest,
-  NodeUpdateRequest,
+  PoiCategory,
+  PoiResponse,
+  PoiCreateRequest,
+  PoiRegisterRequest,
 } from "./building";

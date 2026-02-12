@@ -2,4 +2,4 @@ export { useBuildingStore } from "./building-store";
 export { useFloorStore } from "./floor-store";
 export { usePassageStore } from "./passage-store";
 export { useViewerStore } from "./viewer-store";
-export { useNodeStore } from "./node-store";
+export { usePoiStore } from "./poi-store";

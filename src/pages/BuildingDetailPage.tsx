@@ -11,6 +11,7 @@ import {
   Layers,
   ArrowUpDown,
   Box,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -39,11 +40,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useBuildingStore, usePassageStore } from "@/stores";
+import { useBuildingStore, usePassageStore, usePoiStore } from "@/stores";
 import { StatusBadge, EditBuildingDialog } from "@/components/building";
 import { FloorTable } from "@/components/floor";
 import { PassageTable } from "@/components/passage";
 import { Viewer3DTab } from "@/components/viewer";
+import { POITable, CreatePOIDialog } from "@/components/poi";
 import type { BuildingStatus } from "@/types";
 
 export default function BuildingDetailPage() {
@@ -52,14 +54,17 @@ export default function BuildingDetailPage() {
   const { currentBuilding, isLoading, fetchBuildingDetail, deleteBuilding, updateBuildingStatus, clearCurrentBuilding } =
     useBuildingStore();
   const { fetchPassages, typeFilter } = usePassageStore();
+  const { fetchPois } = usePoiStore();
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [createPoiDialogOpen, setCreatePoiDialogOpen] = useState(false);
 
   useEffect(() => {
     if (id) {
       fetchBuildingDetail(id);
       fetchPassages(id, typeFilter);
+      fetchPois(id);
     }
     return () => clearCurrentBuilding();
   }, [id]);
@@ -194,6 +199,10 @@ export default function BuildingDetailPage() {
             <ArrowUpDown className="mr-2 h-4 w-4" />
             수직 통로
           </TabsTrigger>
+          <TabsTrigger value="pois">
+            <MapPin className="mr-2 h-4 w-4" />
+            POI 관리
+          </TabsTrigger>
           <TabsTrigger value="viewer3d">
             <Box className="mr-2 h-4 w-4" />
             3D 뷰
@@ -208,6 +217,24 @@ export default function BuildingDetailPage() {
           <PassageTable buildingId={currentBuilding.id} passages={currentBuilding.verticalPassages} />
         </TabsContent>
 
+        <TabsContent value="pois" className="mt-4">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">관심지점 (POI)</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  건물 내 주요 위치를 등록하고 관리합니다.
+                </p>
+              </div>
+              <Button onClick={() => setCreatePoiDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                POI 생성
+              </Button>
+            </div>
+            <POITable buildingId={currentBuilding.id} />
+          </div>
+        </TabsContent>
+
         <TabsContent value="viewer3d" className="mt-4">
           <Viewer3DTab floors={currentBuilding.floors} />
         </TabsContent>
@@ -218,6 +245,12 @@ export default function BuildingDetailPage() {
         building={currentBuilding}
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
+      />
+
+      <CreatePOIDialog
+        buildingId={currentBuilding.id}
+        open={createPoiDialogOpen}
+        onOpenChange={setCreatePoiDialogOpen}
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

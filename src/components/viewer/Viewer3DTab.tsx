@@ -1,9 +1,8 @@
-import { useEffect } from "react";
-import { useViewerStore, useNodeStore } from "@/stores";
+import { useEffect, useState } from "react";
+import { useViewerStore, useBuildingStore, usePoiStore } from "@/stores";
 import { PointCloudViewer } from "./PointCloudViewer";
 import { ViewerControls } from "./ViewerControls";
-import { NodeCreateDialog } from "@/components/node/NodeCreateDialog";
-import { NodeDetailSheet } from "@/components/node/NodeDetailSheet";
+import { CreatePOIDialog, POIDetailSheet } from "@/components/poi";
 import type { FloorResponse } from "@/types";
 
 interface Viewer3DTabProps {
@@ -12,40 +11,88 @@ interface Viewer3DTabProps {
 
 export function Viewer3DTab({ floors }: Viewer3DTabProps) {
   const setFloors = useViewerStore((s) => s.setFloors);
+  const setBuilding = useViewerStore((s) => s.setBuilding);
   const viewerReset = useViewerStore((s) => s.reset);
-  const selectedFloorId = useViewerStore((s) => s.selectedFloorId);
-  const showPOI = useViewerStore((s) => s.showPOI);
-  const fetchNodes = useNodeStore((s) => s.fetchNodes);
-  const nodeReset = useNodeStore((s) => s.reset);
-  const selectedNodeId = useNodeStore((s) => s.selectedNodeId);
-  const selectNode = useNodeStore((s) => s.selectNode);
+  const currentBuilding = useBuildingStore((s) => s.currentBuilding);
+  const pendingPoiPosition = usePoiStore((s) => s.pendingPosition);
+  const selectedPoiId = usePoiStore((s) => s.selectedPoiId);
+  const selectPoi = usePoiStore((s) => s.selectPoi);
+  const fetchPois = usePoiStore((s) => s.fetchPois);
+  const poiReset = usePoiStore((s) => s.reset);
+
+  const [createPoiDialogOpen, setCreatePoiDialogOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     setFloors(floors);
+    setBuilding(currentBuilding);
+
+    // POI 목록 불러오기
+    if (currentBuilding?.id) {
+      fetchPois(currentBuilding.id).catch(console.error);
+    }
+
     return () => {
       viewerReset();
-      nodeReset();
+      poiReset();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [floors]);
+  }, [floors, currentBuilding]);
 
+  // POI 배치 위치가 설정되면 다이얼로그 열기
   useEffect(() => {
-    if (selectedFloorId && showPOI) {
-      fetchNodes(selectedFloorId);
+    if (pendingPoiPosition) {
+      setCreatePoiDialogOpen(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFloorId, showPOI]);
+  }, [pendingPoiPosition]);
+
+  if (isFullscreen) {
+    return (
+      <div className="fixed inset-0 z-50 bg-background flex">
+        <PointCloudViewer />
+        <div className="absolute top-4 right-4 z-10">
+          <ViewerControls
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={() => setIsFullscreen(false)}
+          />
+        </div>
+        {currentBuilding && (
+          <CreatePOIDialog
+            buildingId={currentBuilding.id}
+            open={createPoiDialogOpen}
+            onOpenChange={setCreatePoiDialogOpen}
+          />
+        )}
+        <POIDetailSheet
+          poiId={selectedPoiId}
+          open={selectedPoiId !== null}
+          onOpenChange={(open) => {
+            if (!open) selectPoi(null);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="flex gap-4 h-[600px]">
+    <div className="flex gap-4 h-[calc(100vh-280px)] min-h-[600px]">
       <PointCloudViewer />
-      <ViewerControls />
-      <NodeCreateDialog />
-      <NodeDetailSheet
-        nodeId={selectedNodeId}
-        open={selectedNodeId !== null}
+      <ViewerControls
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={() => setIsFullscreen(true)}
+      />
+      {currentBuilding && (
+        <CreatePOIDialog
+          buildingId={currentBuilding.id}
+          open={createPoiDialogOpen}
+          onOpenChange={setCreatePoiDialogOpen}
+        />
+      )}
+      <POIDetailSheet
+        poiId={selectedPoiId}
+        open={selectedPoiId !== null}
         onOpenChange={(open) => {
-          if (!open) selectNode(null);
+          if (!open) selectPoi(null);
         }}
       />
     </div>
