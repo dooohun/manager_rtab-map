@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
@@ -10,14 +10,14 @@ export default function App() {
   return (
     <ThemeProvider defaultTheme="system" storageKey="indoor-nav-theme">
       <TooltipProvider>
-        <BrowserRouter>
+        <HashRouter>
           <Routes>
             <Route element={<AppLayout />}>
               <Route path="/" element={<BuildingsPage />} />
               <Route path="/buildings/:id" element={<BuildingDetailPage />} />
             </Route>
           </Routes>
-        </BrowserRouter>
+        </HashRouter>
         <Toaster richColors position="bottom-right" />
       </TooltipProvider>
     </ThemeProvider>
