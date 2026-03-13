@@ -1,12 +1,10 @@
 import { Orbit, Scan, Eye, Route, MapPin, Layers, Plus, X, Maximize2, Minimize2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Progress } from "@/components/ui/progress";
 import { useViewerStore, usePoiStore } from "@/stores";
 import { FloorSelector } from "./FloorSelector";
 

@@ -6,3 +6,4 @@ export { VerticalPassageOverlay } from "./VerticalPassageOverlay";
 export { Viewer3DTab } from "./Viewer3DTab";
 export { POIOverlay } from "./POIOverlay";
 export { PendingPOIMarker } from "./PendingPOIMarker";
+export { NodeImagePanel } from "./NodeImagePanel";

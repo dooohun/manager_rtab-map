@@ -5,6 +5,8 @@ import type {
   BuildingCreateRequest,
   BuildingUpdateRequest,
   BuildingStatus,
+  NodeImagesRequest,
+  NodeImageResponse,
 } from "@/types";
 
 export async function getBuildings(status?: BuildingStatus): Promise<BuildingResponse[]> {
@@ -36,3 +38,12 @@ export async function updateBuildingStatus(id: string, status: BuildingStatus): 
   const { data } = await springApi.patch<BuildingResponse>(`/api/v1/buildings/${id}/status`, { status });
   return data;
 }
+
+export async function getNodeImages(buildingId: string, coords: NodeImagesRequest): Promise<NodeImageResponse[]> {
+  const { data } = await springApi.post<NodeImageResponse[]>(
+    `/api/v1/buildings/${buildingId}/node-images`,
+    coords,
+  );
+  return data;
+}
+

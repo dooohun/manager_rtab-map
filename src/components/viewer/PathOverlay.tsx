@@ -4,8 +4,14 @@ import * as THREE from "three";
 import { Line } from "@react-three/drei";
 import { useViewerStore, usePoiStore } from "@/stores";
 import { threeToApi } from "@/lib/utils";
+import type { Point3D } from "@/types";
 
-export function PathOverlay() {
+interface PathOverlayProps {
+  onNodeHover?: (apiCoords: Point3D, screenX: number, screenY: number) => void;
+  onNodeLeave?: () => void;
+}
+
+export function PathOverlay({ onNodeHover, onNodeLeave }: PathOverlayProps) {
   const floorPath = useViewerStore((s) => s.floorPath);
   const showPath = useViewerStore((s) => s.showPath);
   const selectedFloorId = useViewerStore((s) => s.selectedFloorId);
@@ -33,7 +39,7 @@ export function PathOverlay() {
 
     const nodeSet = new Map<string, THREE.Vector3>();
 
-    segments.forEach((seg, idx) => {
+    segments.forEach((seg) => {
       const startKey = `${seg.start.x},${seg.start.y},${seg.start.z}`;
       const endKey = `${seg.end.x},${seg.end.y},${seg.end.z}`;
 
@@ -54,7 +60,7 @@ export function PathOverlay() {
     const points: THREE.Vector3[] = [];
     if (segments.length > 0) {
       points.push(segments[0].start);
-      segments.forEach(seg => points.push(seg.end));
+      segments.forEach((seg) => points.push(seg.end));
     }
     return points;
   }, [segments]);
@@ -79,7 +85,7 @@ export function PathOverlay() {
     console.log("🎯 노드 클릭:", {
       nodePosition: { x, y, z },
       api: apiCoords,
-      floorHeight
+      floorHeight,
     });
 
     setPendingPosition({ x: apiCoords.x, y: apiCoords.y, z: 0 });
@@ -103,10 +109,25 @@ export function PathOverlay() {
     console.log("🎯 엣지 클릭:", {
       intersection: { x, y, z },
       api: apiCoords,
-      floorHeight
+      floorHeight,
     });
 
     setPendingPosition({ x: apiCoords.x, y: apiCoords.y, z: 0 });
+  }
+
+  // 노드 hover 핸들러
+  function handleNodePointerEnter(e: ThreeEvent<PointerEvent>, nodePos: THREE.Vector3) {
+    if (isPlacementMode) return;
+    e.stopPropagation();
+
+    const { x, y, z } = nodePos;
+    const apiCoords = threeToApi(x, y, z);
+    onNodeHover?.(apiCoords, e.nativeEvent.clientX, e.nativeEvent.clientY);
+  }
+
+  function handleNodePointerLeave() {
+    if (isPlacementMode) return;
+    onNodeLeave?.();
   }
 
   return (
@@ -132,7 +153,7 @@ export function PathOverlay() {
         const quaternion = new THREE.Quaternion();
         quaternion.setFromUnitVectors(
           new THREE.Vector3(0, 1, 0),
-          direction.normalize()
+          direction.normalize(),
         );
 
         return (
@@ -156,7 +177,7 @@ export function PathOverlay() {
         );
       })}
 
-      {/* 클릭 가능한 노드 (sphere) */}
+      {/* 클릭/hover 가능한 노드 (sphere) */}
       {nodes.map((pos, idx) => {
         const isFirst = idx === 0;
         const isLast = idx === nodes.length - 1;
@@ -166,6 +187,8 @@ export function PathOverlay() {
             key={`node-${idx}`}
             position={pos}
             onClick={(e) => handleNodeClick(e, pos)}
+            onPointerEnter={(e) => handleNodePointerEnter(e, pos)}
+            onPointerLeave={handleNodePointerLeave}
             onPointerOver={() => isPlacementMode && (document.body.style.cursor = "crosshair")}
             onPointerOut={() => isPlacementMode && (document.body.style.cursor = "auto")}
           >
@@ -179,3 +202,4 @@ export function PathOverlay() {
     </group>
   );
 }
+

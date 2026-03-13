@@ -144,3 +144,19 @@ export interface PoiRegisterRequest {
   name: string;
   category: PoiCategory;
 }
+
+export interface NodeImagesRequest {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface NodeImageResponse {
+  nodeId: number;
+  x: number;
+  y: number;
+  z: number;
+  distance: number;
+  cameraAngle: number;
+  imageUrl: string;
+}

@@ -19,4 +19,6 @@ export type {
   PoiResponse,
   PoiCreateRequest,
   PoiRegisterRequest,
+  NodeImagesRequest,
+  NodeImageResponse,
 } from "./building";

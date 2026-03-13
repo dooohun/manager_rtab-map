@@ -1,4 +1,4 @@
-import { Suspense, useRef, useEffect } from "react";
+import { Suspense, useRef, useEffect, useState, useCallback } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Grid } from "@react-three/drei";
 import * as THREE from "three";
@@ -7,6 +7,9 @@ import { useViewerStore, usePoiStore } from "@/stores";
 import { PathOverlay } from "./PathOverlay";
 import { POIOverlay } from "./POIOverlay";
 import { PendingPOIMarker } from "./PendingPOIMarker";
+import { NodeImagePanel } from "./NodeImagePanel";
+import { getNodeImages } from "@/api/buildings";
+import type { NodeImageResponse, Point3D } from "@/types";
 
 function CameraController() {
   const viewMode = useViewerStore((s) => s.viewMode);
@@ -81,7 +84,6 @@ function CameraController() {
       const controls = controlsRef.current;
       let moved = false;
 
-      // 카메라의 방향 벡터 계산
       const forward = new THREE.Vector3();
       const right = new THREE.Vector3();
 
@@ -91,7 +93,6 @@ function CameraController() {
 
       right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
 
-      // WASD 또는 화살표 키로 이동
       if (keysPressed.has("w") || keysPressed.has("W") || keysPressed.has("ArrowUp")) {
         controls.target.addScaledVector(forward, panSpeed);
         moved = true;
@@ -114,7 +115,7 @@ function CameraController() {
       }
     };
 
-    const animationId = setInterval(animate, 16); // ~60fps
+    const animationId = setInterval(animate, 16);
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
@@ -141,7 +142,12 @@ function CameraController() {
   );
 }
 
-function SceneContent() {
+interface SceneContentProps {
+  onNodeHover: (apiCoords: Point3D, screenX: number, screenY: number) => void;
+  onNodeLeave: () => void;
+}
+
+function SceneContent({ onNodeHover, onNodeLeave }: SceneContentProps) {
   return (
     <>
       <ambientLight intensity={0.6} />
@@ -159,7 +165,7 @@ function SceneContent() {
         infiniteGrid
         position={[0, -0.01, 0]}
       />
-      <PathOverlay />
+      <PathOverlay onNodeHover={onNodeHover} onNodeLeave={onNodeLeave} />
       <POIOverlay />
       <PendingPOIMarker />
       <CameraController />
@@ -177,7 +183,59 @@ function LoadingPlaceholder() {
 
 export function PointCloudViewer() {
   const selectedFloorId = useViewerStore((s) => s.selectedFloorId);
+  const building = useViewerStore((s) => s.building);
   const isPlacementMode = usePoiStore((s) => s.isPlacementMode);
+
+  const [nodeImages, setNodeImages] = useState<NodeImageResponse[]>([]);
+  const [isLoadingImages, setIsLoadingImages] = useState(false);
+  const [hoveredScreenPos, setHoveredScreenPos] = useState<{ screenX: number; screenY: number } | null>(null);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleNodeHover = useCallback(
+    (apiCoords: Point3D, screenX: number, screenY: number) => {
+      if (!building?.id) return;
+
+      setHoveredScreenPos({ screenX, screenY });
+      setIsPanelOpen(true);
+
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      debounceTimerRef.current = setTimeout(async () => {
+        setIsLoadingImages(true);
+        try {
+          const images = await getNodeImages(building.id, apiCoords);
+          setNodeImages(images);
+        } catch {
+          setNodeImages([]);
+        } finally {
+          setIsLoadingImages(false);
+        }
+      }, 300);
+    },
+    [building?.id],
+  );
+
+  const handleNodeLeave = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+  }, []);
+
+  const handlePanelClose = useCallback(() => {
+    setIsPanelOpen(false);
+    setNodeImages([]);
+    setHoveredScreenPos(null);
+  }, []);
+
+  useEffect(() => {
+    if (isPlacementMode) {
+      handlePanelClose();
+    }
+  }, [isPlacementMode, handlePanelClose]);
 
   if (!selectedFloorId) {
     return (
@@ -209,7 +267,7 @@ export function PointCloudViewer() {
 
   return (
     <div
-      className="flex-1 rounded-lg border overflow-hidden bg-zinc-950"
+      className="flex-1 rounded-lg border overflow-hidden bg-zinc-950 relative"
       style={{ cursor: isPlacementMode ? "crosshair" : undefined }}
     >
       <Suspense fallback={<LoadingPlaceholder />}>
@@ -226,9 +284,18 @@ export function PointCloudViewer() {
             cursor: isPlacementMode ? "crosshair" : undefined,
           }}
         >
-          <SceneContent />
+          <SceneContent onNodeHover={handleNodeHover} onNodeLeave={handleNodeLeave} />
         </Canvas>
       </Suspense>
+
+      {isPanelOpen && (
+        <NodeImagePanel
+          images={nodeImages}
+          isLoading={isLoadingImages}
+          hoveredPosition={hoveredScreenPos}
+          onClose={handlePanelClose}
+        />
+      )}
     </div>
   );
 }
