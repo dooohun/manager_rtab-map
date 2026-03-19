@@ -191,39 +191,28 @@ export function PointCloudViewer() {
   const [hoveredScreenPos, setHoveredScreenPos] = useState<{ screenX: number; screenY: number } | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
 
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleNodeHover = useCallback(
-    (apiCoords: Point3D, screenX: number, screenY: number) => {
+    async (apiCoords: Point3D, screenX: number, screenY: number) => {
       if (!building?.id) return;
 
       setHoveredScreenPos({ screenX, screenY });
       setIsPanelOpen(true);
+      setIsLoadingImages(true);
 
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
+      try {
+        const images = await getNodeImages(building.id, apiCoords);
+        setNodeImages(images);
+      } catch {
+        setNodeImages([]);
+      } finally {
+        setIsLoadingImages(false);
       }
-
-      debounceTimerRef.current = setTimeout(async () => {
-        setIsLoadingImages(true);
-        try {
-          const images = await getNodeImages(building.id, apiCoords);
-          setNodeImages(images);
-        } catch {
-          setNodeImages([]);
-        } finally {
-          setIsLoadingImages(false);
-        }
-      }, 300);
     },
     [building?.id],
   );
 
-  const handleNodeLeave = useCallback(() => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-  }, []);
+  const handleNodeLeave = useCallback(() => {}, []);
 
   const handlePanelClose = useCallback(() => {
     setIsPanelOpen(false);
