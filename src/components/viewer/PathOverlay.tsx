@@ -54,16 +54,7 @@ export function PathOverlay({ onNodeHover, onNodeLeave }: PathOverlayProps) {
     return Array.from(nodeSet.values());
   }, [segments]);
 
-  const linePoints = useMemo(() => {
-    if (segments.length === 0) return null;
-
-    const points: THREE.Vector3[] = [];
-    if (segments.length > 0) {
-      points.push(segments[0].start);
-      segments.forEach((seg) => points.push(seg.end));
-    }
-    return points;
-  }, [segments]);
+  // 각 segment가 독립적인 엣지(그래프 구조)이므로 개별 렌더링
 
   if (!showPath || segments.length === 0) return null;
 
@@ -132,16 +123,17 @@ export function PathOverlay({ onNodeHover, onNodeLeave }: PathOverlayProps) {
 
   return (
     <group>
-      {/* 시각적 경로 선 (클릭 불가) */}
-      {linePoints && (
+      {/* 시각적 경로 선 - 각 segment를 독립 Line으로 렌더링 */}
+      {segments.map((seg, idx) => (
         <Line
-          points={linePoints}
+          key={`line-${idx}`}
+          points={[seg.start, seg.end]}
           color="#22d3ee"
           lineWidth={isPlacementMode ? 5 : 3}
           transparent
           opacity={0.9}
         />
-      )}
+      ))}
 
       {/* 클릭 가능한 엣지 (cylinder) */}
       {segments.map((seg, idx) => {
