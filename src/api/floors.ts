@@ -29,3 +29,8 @@ export async function getFloorPath(floorId: string): Promise<FloorPathResponse> 
   const { data } = await springApi.get<FloorPathResponse>(`/api/v1/floors/${floorId}/path`);
   return data;
 }
+
+export function getFloorPlyUrl(floorId: string): string {
+  const baseUrl = springApi.defaults.baseURL ?? "";
+  return `${baseUrl}/api/v1/floors/${floorId}/pointcloud`;
+}

@@ -32,6 +32,7 @@ export interface FloorResponse {
   level: number;
   height: number;
   hasPath: boolean;
+  hasPly: boolean;
 }
 
 export type VerticalPassageType = "STAIRCASE" | "ELEVATOR";
@@ -143,6 +144,57 @@ export interface PoiCreateRequest {
 export interface PoiRegisterRequest {
   name: string;
   category: PoiCategory;
+}
+
+// Graph Editor 관련 타입
+export type NodeType = "WAYPOINT" | "POI" | "JUNCTION" | "PASSAGE_ENTRY" | "PASSAGE_EXIT";
+export type EdgeType = "HORIZONTAL" | "VERTICAL_STAIRCASE" | "VERTICAL_ELEVATOR";
+
+export interface PathNodeResponse {
+  id: string;
+  floorId: string;
+  x: number;
+  y: number;
+  z: number;
+  type: NodeType;
+  poiName?: string;
+  poiCategory?: PoiCategory;
+}
+
+export interface PathEdgeResponse {
+  id: string;
+  fromNodeId: string;
+  toNodeId: string;
+  distance: number;
+  edgeType: EdgeType;
+  isBidirectional: boolean;
+}
+
+export interface FloorGraphResponse {
+  floorId: string;
+  nodes: PathNodeResponse[];
+  edges: PathEdgeResponse[];
+}
+
+export interface NodeCreateRequest {
+  x: number;
+  y: number;
+  z?: number;
+  type: NodeType;
+}
+
+export interface NodeUpdateRequest {
+  x?: number;
+  y?: number;
+  z?: number;
+  type?: NodeType;
+}
+
+export interface EdgeCreateRequest {
+  fromNodeId: string;
+  toNodeId: string;
+  edgeType?: EdgeType;
+  isBidirectional?: boolean;
 }
 
 export interface NodeImagesRequest {

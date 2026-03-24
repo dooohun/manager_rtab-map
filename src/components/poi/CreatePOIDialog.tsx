@@ -25,7 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { usePoiStore, useViewerStore } from "@/stores";
+import { usePoiStore, useViewerStore, useGraphEditorStore } from "@/stores";
+import * as graphApi from "@/api/graph";
 import type { PoiCategory } from "@/types";
 
 const POI_CATEGORY_OPTIONS: { value: PoiCategory; label: string }[] = [
@@ -49,74 +50,76 @@ export function CreatePOIDialog({
   open,
   onOpenChange,
 }: CreatePOIDialogProps) {
-  const createPoi = usePoiStore((s) => s.createPoi);
-  const pendingPosition = usePoiStore((s) => s.pendingPosition);
+  void buildingId; // used by parent for context
+  const registerPoiToNode = usePoiStore((s) => s.registerPoiToNode);
+  const pendingPoiTarget = usePoiStore((s) => s.pendingPoiTarget);
   const cancelPlacement = usePoiStore((s) => s.cancelPlacement);
   const selectedFloorId = useViewerStore((s) => s.selectedFloorId);
-  const building = useViewerStore((s) => s.building);
-
-  const selectedFloor = building?.floors.find((f) => f.id === selectedFloorId);
+  const fetchGraph = useGraphEditorStore((s) => s.fetchGraph);
 
   const form = useForm({
     defaultValues: {
       name: "",
       category: "OTHER" as PoiCategory,
-      floorLevel: 1,
-      x: 0,
-      y: 0,
-      z: 0,
     },
   });
 
-  // 다이얼로그가 열릴 때마다 form 초기화
   useEffect(() => {
     if (open) {
-      const x = pendingPosition?.x ?? 0;
-      const y = pendingPosition?.y ?? 0;
-      const floorLevel = selectedFloor?.level ?? 1;
-      const z = selectedFloor?.height ?? 0;
-
-      console.log("🔧 Form 초기화:", { x, y, z, floorLevel, selectedFloor });
-
-      form.reset({
-        name: "",
-        category: "OTHER",
-        floorLevel,
-        x,
-        y,
-        z,
-      });
+      form.reset({ name: "", category: "OTHER" });
     }
-  }, [open, selectedFloor, pendingPosition, form]);
+  }, [open, form]);
 
-  async function onSubmit(values: any) {
-    console.log("📤 제출 값:", values);
-    console.log("📍 선택된 층:", selectedFloor);
-
-    if (!values.name || values.name.trim() === "") {
-      alert("이름을 입력해주세요!");
-      return;
-    }
+  async function onSubmit(values: { name: string; category: PoiCategory }) {
+    if (!values.name.trim()) return;
+    if (!pendingPoiTarget || !selectedFloorId) return;
 
     try {
-      const payload = {
-        name: values.name,
-        category: values.category,
-        floorLevel: Number(values.floorLevel),
-        x: Number(values.x),
-        y: Number(values.y),
-        z: Number(values.z),
-      };
+      if (pendingPoiTarget.targetNodeId) {
+        // 기존 노드에 POI 등록
+        await registerPoiToNode(pendingPoiTarget.targetNodeId, {
+          name: values.name,
+          category: values.category,
+        });
+      } else if (pendingPoiTarget.splitEdge) {
+        // 1. 엣지 위에 새 노드 생성
+        const newNode = await graphApi.createNode(selectedFloorId, {
+          x: pendingPoiTarget.x,
+          y: pendingPoiTarget.y,
+          z: pendingPoiTarget.z,
+          type: "POI",
+        });
 
-      console.log("✅ API 호출:", payload);
+        // 2. 기존 엣지 삭제
+        await graphApi.deleteEdge(pendingPoiTarget.splitEdge.edgeId);
 
-      await createPoi(buildingId, payload);
+        // 3. 분할된 엣지 2개 생성 (fromNode → newNode, newNode → toNode)
+        await graphApi.createEdge(selectedFloorId, {
+          fromNodeId: pendingPoiTarget.splitEdge.fromNodeId,
+          toNodeId: newNode.id,
+          isBidirectional: true,
+        });
+        await graphApi.createEdge(selectedFloorId, {
+          fromNodeId: newNode.id,
+          toNodeId: pendingPoiTarget.splitEdge.toNodeId,
+          isBidirectional: true,
+        });
+
+        // 4. 새 노드에 POI 등록
+        await registerPoiToNode(newNode.id, {
+          name: values.name,
+          category: values.category,
+        });
+
+        // 5. 그래프 새로고침
+        await fetchGraph(selectedFloorId);
+      }
 
       form.reset();
       cancelPlacement();
       onOpenChange(false);
     } catch (error) {
-      console.error("❌ POI 생성 실패:", error);
+      console.error("POI 생성 실패:", error);
     }
   }
 
@@ -126,7 +129,8 @@ export function CreatePOIDialog({
     onOpenChange(false);
   }
 
-  const currentZ = form.watch("z");
+  const isOnNode = !!pendingPoiTarget?.targetNodeId;
+  const isOnEdge = !!pendingPoiTarget?.splitEdge;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -134,10 +138,11 @@ export function CreatePOIDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5" />
-            POI 생성
+            POI 등록
           </DialogTitle>
           <DialogDescription>
-            클릭한 위치에 POI를 생성합니다.
+            {isOnNode && "선택한 노드에 POI를 등록합니다."}
+            {isOnEdge && "엣지 위에 새 노드를 생성하고 POI를 등록합니다."}
           </DialogDescription>
         </DialogHeader>
 
@@ -150,7 +155,7 @@ export function CreatePOIDialog({
                 <FormItem>
                   <FormLabel>이름 *</FormLabel>
                   <FormControl>
-                    <Input placeholder="예: C101강의실" {...field} />
+                    <Input placeholder="예: C101강의실" {...field} autoFocus />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -182,105 +187,18 @@ export function CreatePOIDialog({
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="floorLevel"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>층</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      {...field}
-                      onChange={(e) => {
-                        const level = Number(e.target.value);
-                        field.onChange(level);
-                        // 층이 변경되면 해당 층의 높이로 z값 업데이트
-                        const floor = building?.floors.find((f) => f.level === level);
-                        if (floor) {
-                          form.setValue("z", floor.height);
-                        }
-                      }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="space-y-2">
-              <FormLabel>좌표</FormLabel>
-              <div className="text-xs bg-blue-50 dark:bg-blue-950 p-2 rounded border">
-                현재 Z 값: <strong>{currentZ}</strong> (층 높이)
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <FormField
-                  control={form.control}
-                  name="x"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="any"
-                          placeholder="X"
-                          {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="y"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="any"
-                          placeholder="Y"
-                          {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="z"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="any"
-                          placeholder="Z"
-                          {...field}
-                          value={field.value}
-                          readOnly
-                          className="bg-muted"
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
+            {isOnEdge && (
+              <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                엣지가 자동 분할됩니다 (A→B → A→POI→B)
+              </p>
+            )}
 
             <div className="flex gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={handleCancel}
-              >
+              <Button type="button" variant="outline" className="flex-1" onClick={handleCancel}>
                 취소
               </Button>
               <Button type="submit" className="flex-1" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? "생성 중..." : "생성"}
+                {form.formState.isSubmitting ? "등록 중..." : "등록"}
               </Button>
             </div>
           </form>

@@ -14,15 +14,24 @@ import type { BuildingResponse } from "@/types";
 
 interface BuildingCardProps {
   building: BuildingResponse;
+  onSelect?: () => void;
 }
 
-export function BuildingCard({ building }: BuildingCardProps) {
+export function BuildingCard({ building, onSelect }: BuildingCardProps) {
   const navigate = useNavigate();
+
+  function handleClick() {
+    if (onSelect) {
+      onSelect();
+    } else {
+      navigate(`/buildings/${building.id}`);
+    }
+  }
 
   return (
     <Card
       className="group cursor-pointer transition-all duration-200 hover:shadow-md hover:border-primary/20"
-      onClick={() => navigate(`/buildings/${building.id}`)}
+      onClick={handleClick}
     >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">

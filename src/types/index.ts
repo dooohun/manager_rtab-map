@@ -21,4 +21,12 @@ export type {
   PoiRegisterRequest,
   NodeImagesRequest,
   NodeImageResponse,
+  NodeType,
+  EdgeType,
+  PathNodeResponse,
+  PathEdgeResponse,
+  FloorGraphResponse,
+  NodeCreateRequest,
+  NodeUpdateRequest,
+  EdgeCreateRequest,
 } from "./building";
