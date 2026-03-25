@@ -6,6 +6,7 @@ import type {
 } from "@/types";
 import * as api from "@/api";
 import { toast } from "sonner";
+import { useBuildingStore } from "./building-store";
 
 interface FloorStore {
   floors: FloorResponse[];
@@ -34,19 +35,28 @@ export const useFloorStore = create<FloorStore>((set, get) => ({
   createFloor: async (buildingId, data) => {
     const floor = await api.createFloor(buildingId, data);
     toast.success("층이 생성되었습니다.");
-    await get().fetchFloors(buildingId);
+    await Promise.all([
+      get().fetchFloors(buildingId),
+      useBuildingStore.getState().fetchBuildingDetail(buildingId),
+    ]);
     return floor;
   },
 
   updateFloor: async (floorId, data, buildingId) => {
     await api.updateFloor(floorId, data);
     toast.success("층 정보가 수정되었습니다.");
-    await get().fetchFloors(buildingId);
+    await Promise.all([
+      get().fetchFloors(buildingId),
+      useBuildingStore.getState().fetchBuildingDetail(buildingId),
+    ]);
   },
 
   deleteFloor: async (floorId, buildingId) => {
     await api.deleteFloor(floorId);
     toast.success("층이 삭제되었습니다.");
-    await get().fetchFloors(buildingId);
+    await Promise.all([
+      get().fetchFloors(buildingId),
+      useBuildingStore.getState().fetchBuildingDetail(buildingId),
+    ]);
   },
 }));

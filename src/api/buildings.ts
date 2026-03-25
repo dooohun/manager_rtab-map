@@ -34,6 +34,10 @@ export async function deleteBuilding(id: string): Promise<void> {
   await springApi.delete(`/api/v1/buildings/${id}`);
 }
 
+export async function deleteMultipleBuildings(ids: string[]): Promise<void> {
+  await springApi.delete("/api/v1/buildings/batch", { data: ids });
+}
+
 export async function updateBuildingStatus(id: string, status: BuildingStatus): Promise<BuildingResponse> {
   const { data } = await springApi.patch<BuildingResponse>(`/api/v1/buildings/${id}/status`, { status });
   return data;

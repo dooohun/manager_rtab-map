@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { useViewerStore, useBuildingStore, usePoiStore } from "@/stores";
+import { useViewerStore, useBuildingStore, usePoiStore, useGraphEditorStore } from "@/stores";
 import { PointCloudViewer } from "./PointCloudViewer";
-import { ViewerControls } from "./ViewerControls";
+import { ViewerToolbar } from "./ViewerToolbar";
 import { CreatePOIDialog, POIDetailSheet } from "@/components/poi";
+import { PassageNodeDialog } from "./PassageNodeDialog";
+import { getFloorPlyUrl } from "@/api/floors";
 import type { FloorResponse } from "@/types";
 
 interface Viewer3DTabProps {
@@ -14,87 +16,54 @@ export function Viewer3DTab({ floors }: Viewer3DTabProps) {
   const setBuilding = useViewerStore((s) => s.setBuilding);
   const viewerReset = useViewerStore((s) => s.reset);
   const currentBuilding = useBuildingStore((s) => s.currentBuilding);
-  const pendingPoiPosition = usePoiStore((s) => s.pendingPosition);
+  const pendingPoiTarget = usePoiStore((s) => s.pendingPoiTarget);
   const selectedPoiId = usePoiStore((s) => s.selectedPoiId);
   const selectPoi = usePoiStore((s) => s.selectPoi);
   const fetchPois = usePoiStore((s) => s.fetchPois);
   const poiReset = usePoiStore((s) => s.reset);
+  const selectedFloorId = useViewerStore((s) => s.selectedFloorId);
+  const setShowPOI = useViewerStore((s) => s.setShowPOI);
+  const setShowPointcloud = useViewerStore((s) => s.setShowPointcloud);
+  const setEditorActive = useGraphEditorStore((s) => s.setEditorActive);
+  const fetchGraph = useGraphEditorStore((s) => s.fetchGraph);
+  const graphReset = useGraphEditorStore((s) => s.reset);
+  const setPlyUrl = useViewerStore((s) => s.setPlyUrl);
 
   const [createPoiDialogOpen, setCreatePoiDialogOpen] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     setFloors(floors);
     setBuilding(currentBuilding);
-
-    // POI 목록 불러오기
-    if (currentBuilding?.id) {
-      fetchPois(currentBuilding.id).catch(console.error);
-    }
-
-    return () => {
-      viewerReset();
-      poiReset();
-    };
+    setShowPOI(true);
+    setShowPointcloud(true);
+    setEditorActive(true);
+    if (currentBuilding?.id) fetchPois(currentBuilding.id).catch(console.error);
+    return () => { viewerReset(); poiReset(); graphReset(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [floors, currentBuilding]);
 
-  // POI 배치 위치가 설정되면 다이얼로그 열기
   useEffect(() => {
-    if (pendingPoiPosition) {
-      setCreatePoiDialogOpen(true);
-    }
-  }, [pendingPoiPosition]);
+    if (!selectedFloorId) { setPlyUrl(null); return; }
+    setPlyUrl(getFloorPlyUrl(selectedFloorId));
+  }, [selectedFloorId, setPlyUrl]);
 
-  if (isFullscreen) {
-    return (
-      <div className="fixed inset-0 z-50 bg-background flex">
-        <PointCloudViewer />
-        <div className="absolute top-4 right-4 z-10">
-          <ViewerControls
-            isFullscreen={isFullscreen}
-            onToggleFullscreen={() => setIsFullscreen(false)}
-          />
-        </div>
-        {currentBuilding && (
-          <CreatePOIDialog
-            buildingId={currentBuilding.id}
-            open={createPoiDialogOpen}
-            onOpenChange={setCreatePoiDialogOpen}
-          />
-        )}
-        <POIDetailSheet
-          poiId={selectedPoiId}
-          open={selectedPoiId !== null}
-          onOpenChange={(open) => {
-            if (!open) selectPoi(null);
-          }}
-        />
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (selectedFloorId) fetchGraph(selectedFloorId).catch(console.error);
+  }, [selectedFloorId, fetchGraph]);
+
+  useEffect(() => {
+    if (pendingPoiTarget) setCreatePoiDialogOpen(true);
+  }, [pendingPoiTarget]);
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-280px)] min-h-[600px]">
+    <div className="absolute inset-0">
       <PointCloudViewer />
-      <ViewerControls
-        isFullscreen={isFullscreen}
-        onToggleFullscreen={() => setIsFullscreen(true)}
-      />
+      <ViewerToolbar />
       {currentBuilding && (
-        <CreatePOIDialog
-          buildingId={currentBuilding.id}
-          open={createPoiDialogOpen}
-          onOpenChange={setCreatePoiDialogOpen}
-        />
+        <CreatePOIDialog buildingId={currentBuilding.id} open={createPoiDialogOpen} onOpenChange={setCreatePoiDialogOpen} />
       )}
-      <POIDetailSheet
-        poiId={selectedPoiId}
-        open={selectedPoiId !== null}
-        onOpenChange={(open) => {
-          if (!open) selectPoi(null);
-        }}
-      />
+      <POIDetailSheet poiId={selectedPoiId} open={selectedPoiId !== null} onOpenChange={(open) => { if (!open) selectPoi(null); }} />
+      <PassageNodeDialog />
     </div>
   );
 }

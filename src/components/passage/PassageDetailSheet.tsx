@@ -3,7 +3,6 @@ import { Footprints, ArrowUpDown, Loader2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -47,7 +46,7 @@ export function PassageDetailSheet({ passageId, open, onOpenChange }: PassageDet
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
+      <SheetContent className="w-full sm:w-[540px] overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             {currentPassage?.type === "STAIRCASE" ? (
@@ -57,7 +56,6 @@ export function PassageDetailSheet({ passageId, open, onOpenChange }: PassageDet
             )}
             수직 통로 상세
           </SheetTitle>
-          <SheetDescription>통로의 상세 정보와 세그먼트를 확인합니다.</SheetDescription>
         </SheetHeader>
 
         {isLoading ? (

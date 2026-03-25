@@ -56,7 +56,7 @@ export function PassageTable({ buildingId, passages }: PassageTableProps) {
           총 {passages.length}개 통로
         </p>
         <Select value={typeFilter || "ALL"} onValueChange={handleTypeChange}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[140px] sm:w-[180px]">
             <SelectValue placeholder="타입 필터" />
           </SelectTrigger>
           <SelectContent>
@@ -67,15 +67,15 @@ export function PassageTable({ buildingId, passages }: PassageTableProps) {
         </Select>
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[120px]">타입</TableHead>
+              <TableHead className="w-[100px]">타입</TableHead>
               <TableHead>출발 층</TableHead>
               <TableHead>도착 층</TableHead>
-              <TableHead>진입점</TableHead>
-              <TableHead>출구점</TableHead>
+              <TableHead className="hidden sm:table-cell">진입점</TableHead>
+              <TableHead className="hidden sm:table-cell">출구점</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -93,7 +93,7 @@ export function PassageTable({ buildingId, passages }: PassageTableProps) {
                   onClick={() => setSelectedPassageId(passage.id)}
                 >
                   <TableCell>
-                    <Badge variant="outline" className="gap-1">
+                    <Badge variant="secondary" className="gap-1">
                       {passage.type === "STAIRCASE" ? (
                         <Footprints className="h-3 w-3" />
                       ) : (
@@ -112,7 +112,7 @@ export function PassageTable({ buildingId, passages }: PassageTableProps) {
                       ? `${passage.toFloorLevel}F`
                       : `B${Math.abs(passage.toFloorLevel)}F`}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <Tooltip>
                       <TooltipTrigger className="text-sm text-muted-foreground underline decoration-dotted">
                         좌표 보기
@@ -122,7 +122,7 @@ export function PassageTable({ buildingId, passages }: PassageTableProps) {
                       </TooltipContent>
                     </Tooltip>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <Tooltip>
                       <TooltipTrigger className="text-sm text-muted-foreground underline decoration-dotted">
                         좌표 보기
