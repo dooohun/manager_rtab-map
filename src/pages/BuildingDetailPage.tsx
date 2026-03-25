@@ -12,6 +12,7 @@ import {
   ArrowUpDown,
   Box,
   Plus,
+  HardDrive,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -40,13 +41,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useBuildingStore, usePassageStore, usePoiStore } from "@/stores";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useBuildingStore, usePassageStore, usePoiStore, useChunkStore } from "@/stores";
 import { StatusBadge, EditBuildingDialog } from "@/components/building";
 import { FloorTable } from "@/components/floor";
 import { PassageTable } from "@/components/passage";
 import { Viewer3DTab } from "@/components/viewer";
 import { POITable, CreatePOIDialog } from "@/components/poi";
-import type { BuildingStatus } from "@/types";
+import { ChunkManageSheet, MergeBadge } from "@/components/chunk";
+import type { BuildingStatus, FloorResponse } from "@/types";
 
 export default function BuildingDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -55,10 +65,12 @@ export default function BuildingDetailPage() {
     useBuildingStore();
   const { fetchPassages, typeFilter } = usePassageStore();
   const { fetchPois } = usePoiStore();
+  const { mergeStatuses, fetchAllMergeStatuses, reset: resetChunkStore } = useChunkStore();
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [createPoiDialogOpen, setCreatePoiDialogOpen] = useState(false);
+  const [chunkFloor, setChunkFloor] = useState<FloorResponse | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -66,8 +78,17 @@ export default function BuildingDetailPage() {
       fetchPassages(id, typeFilter);
       fetchPois(id);
     }
-    return () => clearCurrentBuilding();
+    return () => {
+      clearCurrentBuilding();
+      resetChunkStore();
+    };
   }, [id]);
+
+  useEffect(() => {
+    if (currentBuilding && currentBuilding.floors.length > 0) {
+      fetchAllMergeStatuses(currentBuilding.floors.map((f) => f.id));
+    }
+  }, [currentBuilding?.id]);
 
   async function handleDelete() {
     if (!id) return;
@@ -203,6 +224,10 @@ export default function BuildingDetailPage() {
             <MapPin className="mr-2 h-4 w-4" />
             POI 관리
           </TabsTrigger>
+          <TabsTrigger value="db">
+            <HardDrive className="mr-2 h-4 w-4" />
+            DB 관리
+          </TabsTrigger>
           <TabsTrigger value="viewer3d">
             <Box className="mr-2 h-4 w-4" />
             3D 뷰
@@ -235,6 +260,58 @@ export default function BuildingDetailPage() {
           </div>
         </TabsContent>
 
+        <TabsContent value="db" className="mt-4">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold">스캔 DB 관리</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                각 층의 RTAB-Map 스캔 데이터(.db)를 업로드하고 관리합니다.
+              </p>
+            </div>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[100px]">레벨</TableHead>
+                    <TableHead>이름</TableHead>
+                    <TableHead className="w-[100px]">병합 DB</TableHead>
+                    <TableHead className="w-[120px] text-right">관리</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {currentBuilding.floors.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                        등록된 층이 없습니다. 먼저 층을 추가해주세요.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    [...currentBuilding.floors]
+                      .sort((a, b) => b.level - a.level)
+                      .map((floor) => (
+                        <TableRow key={floor.id}>
+                          <TableCell className="font-medium">
+                            {floor.level > 0 ? `${floor.level}F` : `B${Math.abs(floor.level)}F`}
+                          </TableCell>
+                          <TableCell>{floor.name}</TableCell>
+                          <TableCell>
+                            <MergeBadge status={mergeStatuses[floor.id]?.status} />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button size="sm" variant="outline" onClick={() => setChunkFloor(floor)}>
+                              <HardDrive className="mr-2 h-4 w-4" />
+                              DB 관리
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </TabsContent>
+
         <TabsContent value="viewer3d" className="mt-4">
           <Viewer3DTab floors={currentBuilding.floors} />
         </TabsContent>
@@ -252,6 +329,15 @@ export default function BuildingDetailPage() {
         open={createPoiDialogOpen}
         onOpenChange={setCreatePoiDialogOpen}
       />
+
+      {chunkFloor && (
+        <ChunkManageSheet
+          floorId={chunkFloor.id}
+          floorName={chunkFloor.name}
+          open={!!chunkFloor}
+          onOpenChange={(open) => !open && setChunkFloor(null)}
+        />
+      )}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

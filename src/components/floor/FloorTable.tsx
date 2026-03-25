@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Pencil, Trash2, Plus, HardDrive } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -20,9 +20,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useFloorStore } from "@/stores";
+import { useFloorStore, useChunkStore } from "@/stores";
 import type { FloorResponse } from "@/types";
 import { FloorFormDialog } from "./FloorFormDialog";
+import { ChunkManageSheet, MergeBadge } from "@/components/chunk";
 
 interface FloorTableProps {
   buildingId: string;
@@ -31,9 +32,17 @@ interface FloorTableProps {
 
 export function FloorTable({ buildingId, floors }: FloorTableProps) {
   const { deleteFloor } = useFloorStore();
+  const { mergeStatuses, fetchAllMergeStatuses } = useChunkStore();
   const [deleteTarget, setDeleteTarget] = useState<FloorResponse | null>(null);
   const [editTarget, setEditTarget] = useState<FloorResponse | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [chunkFloor, setChunkFloor] = useState<FloorResponse | null>(null);
+
+  useEffect(() => {
+    if (floors.length > 0) {
+      fetchAllMergeStatuses(floors.map((f) => f.id));
+    }
+  }, [floors]);
 
   const sortedFloors = [...floors].sort((a, b) => b.level - a.level);
 
@@ -67,13 +76,14 @@ export function FloorTable({ buildingId, floors }: FloorTableProps) {
               <TableHead>이름</TableHead>
               <TableHead className="w-[100px]">높이 (m)</TableHead>
               <TableHead className="w-[100px]">경로</TableHead>
-              <TableHead className="w-[100px] text-right">액션</TableHead>
+              <TableHead className="w-[100px]">병합 DB</TableHead>
+              <TableHead className="w-[120px] text-right">액션</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sortedFloors.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                   등록된 층이 없습니다.
                 </TableCell>
               </TableRow>
@@ -90,8 +100,14 @@ export function FloorTable({ buildingId, floors }: FloorTableProps) {
                       {floor.hasPath ? "있음" : "없음"}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    <MergeBadge status={mergeStatuses[floor.id]?.status} />
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => setChunkFloor(floor)} title="DB 관리">
+                        <HardDrive className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => setEditTarget(floor)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -121,6 +137,15 @@ export function FloorTable({ buildingId, floors }: FloorTableProps) {
           onOpenChange={(open) => !open && setEditTarget(null)}
           mode="edit"
           floor={editTarget}
+        />
+      )}
+
+      {chunkFloor && (
+        <ChunkManageSheet
+          floorId={chunkFloor.id}
+          floorName={chunkFloor.name}
+          open={!!chunkFloor}
+          onOpenChange={(open) => !open && setChunkFloor(null)}
         />
       )}
 

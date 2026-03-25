@@ -197,6 +197,43 @@ export interface EdgeCreateRequest {
   isBidirectional?: boolean;
 }
 
+// Chunk (DB 파일) 관련 타입
+export type ChunkStatus = "UPLOADED" | "FAILED";
+
+export interface ChunkResponse {
+  id: string;
+  floorId: string;
+  fileName: string;
+  fileSize: number;
+  status: ChunkStatus;
+  active: boolean;
+  uploadOrder: number;
+  errorMessage: string | null;
+  createdAt: string;
+}
+
+// 병합 관련 타입
+export type MergedScanStatus =
+  | "MERGING"
+  | "MERGED"
+  | "MERGE_FAILED"
+  | "EXTRACTING"
+  | "PROCESSING"
+  | "COMPLETED"
+  | "FAILED";
+
+export interface MergedScanResponse {
+  id: string;
+  floorId: string;
+  status: MergedScanStatus;
+  plyFileId: string | null;
+  totalNodes: number | null;
+  totalDistance: number | null;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface NodeImagesRequest {
   x: number;
   y: number;

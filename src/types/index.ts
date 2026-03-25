@@ -29,4 +29,8 @@ export type {
   NodeCreateRequest,
   NodeUpdateRequest,
   EdgeCreateRequest,
+  ChunkStatus,
+  ChunkResponse,
+  MergedScanStatus,
+  MergedScanResponse,
 } from "./building";
