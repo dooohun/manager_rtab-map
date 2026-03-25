@@ -2,24 +2,18 @@ import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { MergedScanStatus } from "@/types";
 
-const LABEL: Record<MergedScanStatus, string> = {
-  MERGING: "병합 중",
-  MERGED: "병합됨",
-  MERGE_FAILED: "병합 실패",
-  EXTRACTING: "추출 중",
-  PROCESSING: "처리 중",
-  COMPLETED: "완료",
-  FAILED: "실패",
-};
-
-const VARIANT: Record<MergedScanStatus, "default" | "secondary" | "destructive"> = {
-  MERGING: "secondary",
-  MERGED: "default",
-  MERGE_FAILED: "destructive",
-  EXTRACTING: "secondary",
-  PROCESSING: "secondary",
-  COMPLETED: "default",
-  FAILED: "destructive",
+const STATUS_CONFIG: Record<MergedScanStatus, {
+  label: string;
+  variant: "default" | "secondary" | "destructive" | "outline";
+  spinning?: boolean;
+}> = {
+  MERGING:      { label: "층 구성 중",    variant: "secondary",    spinning: true },
+  MERGED:       { label: "층 구성됨",     variant: "outline" },
+  MERGE_FAILED: { label: "층 구성 실패",   variant: "destructive" },
+  EXTRACTING:   { label: "3D 변환 중",    variant: "secondary",    spinning: true },
+  PROCESSING:   { label: "경로 생성 중",   variant: "secondary",    spinning: true },
+  COMPLETED:    { label: "완료",          variant: "default" },
+  FAILED:       { label: "처리 실패",      variant: "destructive" },
 };
 
 interface MergeBadgeProps {
@@ -29,18 +23,18 @@ interface MergeBadgeProps {
 export function MergeBadge({ status }: MergeBadgeProps) {
   if (!status) {
     return (
-      <Badge variant="outline" className="text-muted-foreground">
-        없음
+      <Badge variant="outline" className="text-muted-foreground text-[10px] px-1.5 py-0">
+        스캔 필요
       </Badge>
     );
   }
 
-  const isInProgress = status === "MERGING" || status === "EXTRACTING" || status === "PROCESSING";
+  const config = STATUS_CONFIG[status];
 
   return (
-    <Badge variant={VARIANT[status]} className="gap-1">
-      {isInProgress && <Loader2 className="h-3 w-3 animate-spin" />}
-      {LABEL[status]}
+    <Badge variant={config.variant} className="gap-1 text-[10px] px-1.5 py-0">
+      {config.spinning && <Loader2 className="h-3 w-3 animate-spin" />}
+      {config.label}
     </Badge>
   );
 }

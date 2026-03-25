@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import type { ThreeEvent } from "@react-three/fiber";
 import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
@@ -99,12 +99,22 @@ export function GraphEditorOverlay() {
     setDragPos(null);
   }, [dragNodeId, dragPos, selectedFloorId]);
 
-  const isInteractive = editorMode === "select" || editorMode === "add-edge" || isPlacementMode;
-  // 엣지 클릭 영역은 선택/POI 모드에서만 (add-edge에서는 노드만 클릭해야 하므로 제외)
-  const showEdgeHitArea = editorMode === "select" || isPlacementMode;
+  // Track space key to suppress clicks during camera navigation
+  const spaceHeldRef = useRef(false);
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => { if (e.code === "Space") spaceHeldRef.current = true; };
+    const up = (e: KeyboardEvent) => { if (e.code === "Space") spaceHeldRef.current = false; };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
+  }, []);
+
+  const isInteractive = editorMode === "view" || editorMode === "select" || editorMode === "add-edge" || isPlacementMode;
+  const showEdgeHitArea = editorMode === "view" || editorMode === "select" || isPlacementMode;
 
   function handleNodeClick(e: ThreeEvent<MouseEvent>, nodeId: string) {
     e.stopPropagation();
+    if (spaceHeldRef.current) return;
 
     if (isPlacementMode) {
       const node = nodes.find((n) => n.id === nodeId);
@@ -117,7 +127,14 @@ export function GraphEditorOverlay() {
       return;
     }
 
-    if (editorMode === "select") {
+    // Complete pending passage link
+    const pendingLink = useGraphEditorStore.getState().pendingPassageLink;
+    if (pendingLink && selectedFloorId && pendingLink.floorId !== selectedFloorId) {
+      useGraphEditorStore.getState().completePassageLink(nodeId, selectedFloorId);
+      return;
+    }
+
+    if (editorMode === "view" || editorMode === "select") {
       selectNode(nodeId);
       return;
     }
@@ -134,6 +151,7 @@ export function GraphEditorOverlay() {
 
   function handleEdgeClick(e: ThreeEvent<MouseEvent>, edgeId: string) {
     e.stopPropagation();
+    if (spaceHeldRef.current) return;
 
     if (isPlacementMode) {
       const clickApi = threeToApi(e.point.x, e.point.y, e.point.z);
@@ -156,16 +174,46 @@ export function GraphEditorOverlay() {
       return;
     }
 
-    if (editorMode === "select") {
+    if (editorMode === "view" || editorMode === "select") {
       selectEdge(edgeId);
     }
   }
 
+  // Long press for node type change (only on unselected nodes)
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPressRef = useRef(false);
+
+  function cancelLongPress() {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }
+
   function handleNodePointerDown(e: ThreeEvent<PointerEvent>, nodeId: string) {
-    if (editorMode !== "select" || isPlacementMode) return;
-    if (nodeId !== selectedNodeId) return;
+    if ((editorMode !== "view" && editorMode !== "select") || isPlacementMode) return;
     e.stopPropagation();
-    setDragNodeId(nodeId);
+    didLongPressRef.current = false;
+
+    if (nodeId === selectedNodeId) {
+      // Already selected → drag, no long press
+      setDragNodeId(nodeId);
+    } else {
+      // Not selected → long press for type change
+      longPressTimerRef.current = setTimeout(() => {
+        didLongPressRef.current = true;
+        useGraphEditorStore.getState().setLongPressNodeId(nodeId);
+      }, 600);
+    }
+  }
+
+  function handleNodePointerUp() {
+    cancelLongPress();
+  }
+
+  // Cancel long press if pointer moves (user is panning)
+  function handleNodePointerMove() {
+    cancelLongPress();
   }
 
   const isPassageNode = (type: string) => type === "PASSAGE_ENTRY" || type === "PASSAGE_EXIT";
@@ -206,7 +254,7 @@ export function GraphEditorOverlay() {
             <Line
               points={[fromPos, toPos]}
               color={color}
-              lineWidth={isSelected ? 6 : 4}
+              lineWidth={isSelected ? 4 : 2.5}
               dashed={!edge.isBidirectional}
               dashScale={5}
               transparent
@@ -241,19 +289,22 @@ export function GraphEditorOverlay() {
             : NODE_COLORS[node.type] ?? "#22d3ee";
 
         const radius = isSelected || isEdgeSource
-          ? 0.35
+          ? 0.45
           : isPassageNode(node.type)
-            ? 0.3
+            ? 0.4
             : node.type === "JUNCTION"
-              ? 0.25
-              : 0.2;
+              ? 0.35
+              : 0.3;
 
         return (
           <group key={`node-${node.id}`}>
             <mesh
               position={pos}
-              onClick={(e) => handleNodeClick(e, node.id)}
+              onClick={(e) => { if (didLongPressRef.current) { didLongPressRef.current = false; return; } handleNodeClick(e, node.id); }}
               onPointerDown={(e) => handleNodePointerDown(e, node.id)}
+              onPointerUp={handleNodePointerUp}
+              onPointerMove={handleNodePointerMove}
+              onPointerLeave={handleNodePointerUp}
               onPointerOver={() => {
                 if (isInteractive) document.body.style.cursor = isSelected ? "grab" : "pointer";
               }}

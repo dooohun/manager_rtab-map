@@ -4,7 +4,6 @@ import { MapPin } from "lucide-react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -140,10 +139,6 @@ export function CreatePOIDialog({
             <MapPin className="h-5 w-5" />
             POI 등록
           </DialogTitle>
-          <DialogDescription>
-            {isOnNode && "선택한 노드에 POI를 등록합니다."}
-            {isOnEdge && "엣지 위에 새 노드를 생성하고 POI를 등록합니다."}
-          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>

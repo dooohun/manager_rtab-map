@@ -2,7 +2,6 @@ import { MapPin, Trash2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -59,13 +58,12 @@ export function POIDetailSheet({ poiId, open, onOpenChange }: POIDetailSheetProp
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[400px] sm:w-[480px] overflow-y-auto">
+      <SheetContent className="w-full sm:w-[480px] overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5" />
             POI 상세
           </SheetTitle>
-          <SheetDescription>POI 정보를 확인합니다.</SheetDescription>
         </SheetHeader>
 
         <div className="space-y-6 mt-6">
@@ -94,10 +92,10 @@ export function POIDetailSheet({ poiId, open, onOpenChange }: POIDetailSheetProp
 
           <Separator />
 
-          <div className="flex gap-2">
+          <div>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="flex-1">
+                <Button variant="destructive" className="w-full" size="sm">
                   <Trash2 className="mr-2 h-4 w-4" />
                   삭제
                 </Button>

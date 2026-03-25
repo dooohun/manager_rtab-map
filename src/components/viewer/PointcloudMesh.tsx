@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { PLYLoader } from "three/examples/jsm/loaders/PLYLoader.js";
 import type { ThreeEvent } from "@react-three/fiber";
@@ -134,12 +134,33 @@ export function PointcloudMesh({ plyUrl }: PointcloudMeshProps) {
     };
   }, [geometry]);
 
+  // Track space key to suppress clicks during camera navigation
+  const spaceHeldRef = useRef(false);
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => { if (e.code === "Space") spaceHeldRef.current = true; };
+    const up = (e: KeyboardEvent) => { if (e.code === "Space") spaceHeldRef.current = false; };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
+  }, []);
+
   async function handlePlaneClick(e: ThreeEvent<MouseEvent>) {
     e.stopPropagation();
+
+    // Space held → camera navigation, don't place anything
+    if (spaceHeldRef.current) return;
+
+    // 빈 공간 클릭 → 항상 선택 해제
+    const store = useGraphEditorStore.getState();
+    if (store.selectedNodeId || store.selectedEdgeId) {
+      store.selectNode(null);
+      store.selectEdge(null);
+    }
+
     const { x, y, z } = e.point;
     const apiCoords = threeToApi(x, y, z);
 
-    // 뷰 모드: 아무 동작 안 함
+    // 뷰 모드: 선택 해제만
     if (editorMode === "view" && !isPlacementMode) {
       return;
     }

@@ -197,7 +197,7 @@ export interface EdgeCreateRequest {
   isBidirectional?: boolean;
 }
 
-// Chunk (DB 파일) 관련 타입
+// Chunk (스캔파일) 관련 타입
 export type ChunkStatus = "UPLOADED" | "FAILED";
 
 export interface ChunkResponse {

@@ -28,6 +28,8 @@ interface GraphEditorState {
   pendingPassageInfo: PendingPassageInfo | null;
   autoConnect: boolean;
   lastPlacedNodeId: string | null;
+  longPressNodeId: string | null;
+  pendingPassageLink: { nodeId: string; floorId: string } | null;
 
   setEditorActive: (active: boolean) => void;
   fetchGraph: (floorId: string) => Promise<void>;
@@ -46,6 +48,9 @@ interface GraphEditorState {
   setPendingPassageInfo: (info: PendingPassageInfo | null) => void;
   confirmPassageConnection: (currentFloorId: string, targetFloorId: string) => Promise<void>;
   setAutoConnect: (enabled: boolean) => void;
+  setLongPressNodeId: (nodeId: string | null) => void;
+  setPendingPassageLink: (link: { nodeId: string; floorId: string } | null) => void;
+  completePassageLink: (targetNodeId: string, targetFloorId: string) => Promise<void>;
   reset: () => void;
 }
 
@@ -62,6 +67,8 @@ const initialState = {
   pendingPassageInfo: null as PendingPassageInfo | null,
   autoConnect: true,
   lastPlacedNodeId: null as string | null,
+  longPressNodeId: null as string | null,
+  pendingPassageLink: null as { nodeId: string; floorId: string } | null,
 };
 
 export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
@@ -255,6 +262,35 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
   },
 
   setAutoConnect: (enabled) => set({ autoConnect: enabled, lastPlacedNodeId: null }),
+  setLongPressNodeId: (nodeId) => set({ longPressNodeId: nodeId }),
+  setPendingPassageLink: (link) => set({ pendingPassageLink: link }),
+
+  completePassageLink: async (targetNodeId, targetFloorId) => {
+    const { pendingPassageLink } = get();
+    if (!pendingPassageLink) return;
+
+    try {
+      // 양쪽 노드를 통로 타입으로 변경
+      await api.updateNode(pendingPassageLink.nodeId, { type: "PASSAGE_ENTRY" });
+      await api.updateNode(targetNodeId, { type: "PASSAGE_EXIT" });
+
+      // 수직 엣지 생성
+      await api.createEdge(pendingPassageLink.floorId, {
+        fromNodeId: pendingPassageLink.nodeId,
+        toNodeId: targetNodeId,
+        edgeType: "VERTICAL_STAIRCASE",
+        isBidirectional: true,
+      });
+
+      set({ pendingPassageLink: null });
+      toast.success("통로가 연결되었습니다.");
+
+      // 현재 층 그래프 새로고침
+      await get().fetchGraph(targetFloorId);
+    } catch {
+      toast.error("통로 연결에 실패했습니다.");
+    }
+  },
 
   reset: () => set(initialState),
 }));

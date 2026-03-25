@@ -1,4 +1,4 @@
-import { Suspense, useRef, useEffect } from "react";
+import { Suspense, useRef, useEffect, useState } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Grid } from "@react-three/drei";
 import * as THREE from "three";
@@ -70,52 +70,60 @@ function CameraController() {
     useViewerStore.getState().setOrbitTarget(null);
   }, [orbitTarget]);
 
-  // 키보드 카메라 이동 (WASD) - 노드배치/POI배치 모드에서는 비활성
-  useEffect(() => {
-    const isInteracting = isPlacementMode || editorMode === "add-node";
-    if (!controlsRef.current || isInteracting) return;
+  // Space key tracking — hold space to enable camera movement in placement modes
+  const [spaceHeld, setSpaceHeld] = useState(false);
 
+  useEffect(() => {
+    const onDown = (e: KeyboardEvent) => {
+      if (e.code === "Space") { e.preventDefault(); setSpaceHeld(true); }
+    };
+    const onUp = (e: KeyboardEvent) => {
+      if (e.code === "Space") setSpaceHeld(false);
+    };
+    window.addEventListener("keydown", onDown);
+    window.addEventListener("keyup", onUp);
+    return () => { window.removeEventListener("keydown", onDown); window.removeEventListener("keyup", onUp); };
+  }, []);
+
+  // WASD camera panning
+  useEffect(() => {
+    if (!controlsRef.current) return;
     const panSpeed = 0.5;
     const keysPressed = new Set<string>();
 
-    const onDown = (e: KeyboardEvent) => keysPressed.add(e.code);
+    const onDown = (e: KeyboardEvent) => { if (e.code !== "Space") keysPressed.add(e.code); };
     const onUp = (e: KeyboardEvent) => keysPressed.delete(e.code);
 
-    const animate = () => {
+    const animationId = setInterval(() => {
       if (!controlsRef.current) return;
       const controls = controlsRef.current;
       let moved = false;
       const forward = new THREE.Vector3();
       const right = new THREE.Vector3();
       camera.getWorldDirection(forward);
-      forward.y = 0;
-      forward.normalize();
+      forward.y = 0; forward.normalize();
       right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
 
       if (keysPressed.has("KeyW") || keysPressed.has("ArrowUp")) { controls.target.addScaledVector(forward, panSpeed); moved = true; }
       if (keysPressed.has("KeyS") || keysPressed.has("ArrowDown")) { controls.target.addScaledVector(forward, -panSpeed); moved = true; }
       if (keysPressed.has("KeyA") || keysPressed.has("ArrowLeft")) { controls.target.addScaledVector(right, -panSpeed); moved = true; }
       if (keysPressed.has("KeyD") || keysPressed.has("ArrowRight")) { controls.target.addScaledVector(right, panSpeed); moved = true; }
-
       if (moved) controls.update();
-    };
+    }, 16);
 
-    const animationId = setInterval(animate, 16);
-    window.addEventListener("keydown", onDown);
-    window.addEventListener("keyup", onUp);
-    return () => {
-      clearInterval(animationId);
-      window.removeEventListener("keydown", onDown);
-      window.removeEventListener("keyup", onUp);
-    };
-  }, [camera, isPlacementMode, editorMode]);
+    window.addEventListener("keydown", onDown, true);
+    window.addEventListener("keyup", onUp, true);
+    return () => { clearInterval(animationId); window.removeEventListener("keydown", onDown, true); window.removeEventListener("keyup", onUp, true); };
+  }, [camera]);
 
   const isNodePlacement = isPlacementMode || editorMode === "add-node";
+  // Space held → enable rotation/pan even in placement mode
+  const allowRotate = !isNodePlacement || spaceHeld;
 
   return (
     <OrbitControls
       ref={controlsRef}
-      enableRotate={!isNodePlacement}
+      enableRotate={allowRotate}
       enableZoom={true}
       enablePan={true}
       enableDamping
@@ -240,25 +248,17 @@ export function PointCloudViewer() {
 
   if (!selectedFloorId) {
     return (
-      <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20">
-        <div className="text-center space-y-2">
-          <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground">
-              <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-              <path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" />
-            </svg>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            우측 패널에서 층을 선택하면<br />3D 뷰를 확인할 수 있습니다.
-          </p>
-        </div>
+      <div className="w-full h-full flex items-center justify-center bg-muted/20">
+        <p className="text-sm text-muted-foreground">
+          상단에서 층을 선택하세요
+        </p>
       </div>
     );
   }
 
   return (
     <div
-      className="flex-1 rounded-lg border overflow-hidden bg-zinc-950 relative"
+      className="w-full h-full overflow-hidden bg-zinc-950 relative"
       style={{ cursor: isPlacementMode || isAddingNode ? "crosshair" : undefined }}
     >
       <Suspense fallback={<LoadingPlaceholder />}>
@@ -270,6 +270,11 @@ export function PointCloudViewer() {
             toneMappingExposure: 1.2,
           }}
           style={{ width: "100%", height: "100%" }}
+          onPointerMissed={() => {
+            const store = useGraphEditorStore.getState();
+            store.selectNode(null);
+            store.selectEdge(null);
+          }}
         >
           <SceneContent />
         </Canvas>

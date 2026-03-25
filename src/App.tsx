@@ -8,7 +8,7 @@ import BuildingDetailPage from "@/pages/BuildingDetailPage";
 
 export default function App() {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="indoor-nav-theme">
+    <ThemeProvider defaultTheme="light" storageKey="indoor-nav-theme">
       <TooltipProvider>
         <HashRouter>
           <Routes>
@@ -18,7 +18,7 @@ export default function App() {
             </Route>
           </Routes>
         </HashRouter>
-        <Toaster richColors position="bottom-right" />
+        <Toaster richColors position="bottom-center" style={{ bottom: "60px" }} />
       </TooltipProvider>
     </ThemeProvider>
   );

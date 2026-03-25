@@ -1,6 +1,6 @@
 export { PointCloudViewer } from "./PointCloudViewer";
 export { FloorSelector } from "./FloorSelector";
-export { ViewerControls } from "./ViewerControls";
+export { ViewerToolbar } from "./ViewerToolbar";
 export { VerticalPassageOverlay } from "./VerticalPassageOverlay";
 export { Viewer3DTab } from "./Viewer3DTab";
 export { POIOverlay } from "./POIOverlay";

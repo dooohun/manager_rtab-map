@@ -1,18 +1,20 @@
 import { useState } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus } from "lucide-react";
+import { Info } from "lucide-react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Form,
   FormControl,
@@ -24,18 +26,21 @@ import {
 import { buildingCreateSchema, type BuildingCreateFormValues } from "@/lib/validations/building";
 import { useBuildingStore } from "@/stores";
 
-export function CreateBuildingDialog() {
-  const [open, setOpen] = useState(false);
+interface CreateBuildingDialogProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function CreateBuildingDialog({ open: controlledOpen, onOpenChange: controlledOnChange }: CreateBuildingDialogProps = {}) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const createBuilding = useBuildingStore((s) => s.createBuilding);
+
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = controlledOnChange ?? setInternalOpen;
 
   const form = useForm<BuildingCreateFormValues>({
     resolver: zodResolver(buildingCreateSchema) as Resolver<BuildingCreateFormValues>,
-    defaultValues: {
-      name: "",
-      description: "",
-      latitude: undefined,
-      longitude: undefined,
-    },
+    defaultValues: { name: "", description: "" },
   });
 
   async function onSubmit(values: BuildingCreateFormValues) {
@@ -43,8 +48,6 @@ export function CreateBuildingDialog() {
       await createBuilding({
         name: values.name,
         description: values.description || undefined,
-        latitude: typeof values.latitude === "number" ? values.latitude : undefined,
-        longitude: typeof values.longitude === "number" ? values.longitude : undefined,
       });
       form.reset();
       setOpen(false);
@@ -55,16 +58,9 @@ export function CreateBuildingDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          건물 추가
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[380px]">
         <DialogHeader>
           <DialogTitle>새 건물 생성</DialogTitle>
-          <DialogDescription>건물의 기본 정보를 입력해주세요.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -76,7 +72,7 @@ export function CreateBuildingDialog() {
                 <FormItem>
                   <FormLabel>건물 이름 *</FormLabel>
                   <FormControl>
-                    <Input placeholder="예: 공학관" {...field} />
+                    <Input placeholder="예: 2공학관" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -88,65 +84,34 @@ export function CreateBuildingDialog() {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>설명</FormLabel>
+                  <FormLabel className="flex items-center gap-1">
+                    설명
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[220px] text-xs">
+                        <p>여기에 키워드를 넣으면 사용자가 건물을 검색할 때 활용됩니다.</p>
+                        <p className="mt-1 text-muted-foreground">예: 컴공, 2공, 학부 사무실</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </FormLabel>
                   <FormControl>
-                    <Input placeholder="건물에 대한 설명을 입력해주세요" {...field} />
+                    <Input placeholder="예: 컴공, 2공, 학부 사무실" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="latitude"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>위도</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="any"
-                        placeholder="37.5665"
-                        value={field.value ?? ""}
-                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="longitude"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>경도</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="any"
-                        placeholder="126.9780"
-                        value={field.value ?? ""}
-                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setOpen(false)}>
                 취소
               </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button type="submit" className="flex-1" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? "생성 중..." : "생성"}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         </Form>
       </DialogContent>

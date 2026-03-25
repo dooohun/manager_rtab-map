@@ -1,24 +1,9 @@
-import { useState, useEffect } from "react";
-import { Pencil, Trash2, Plus, HardDrive } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { useState, useEffect, useRef } from "react";
+import { Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useFloorStore, useChunkStore } from "@/stores";
 import type { FloorResponse } from "@/types";
@@ -33,138 +18,176 @@ interface FloorTableProps {
 export function FloorTable({ buildingId, floors }: FloorTableProps) {
   const { deleteFloor } = useFloorStore();
   const { mergeStatuses, fetchAllMergeStatuses } = useChunkStore();
-  const [deleteTarget, setDeleteTarget] = useState<FloorResponse | null>(null);
   const [editTarget, setEditTarget] = useState<FloorResponse | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [chunkFloor, setChunkFloor] = useState<FloorResponse | null>(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   useEffect(() => {
-    if (floors.length > 0) {
-      fetchAllMergeStatuses(floors.map((f) => f.id));
-    }
+    if (floors.length > 0) fetchAllMergeStatuses(floors.map((f) => f.id));
   }, [floors]);
 
   const sortedFloors = [...floors].sort((a, b) => b.level - a.level);
+  const allSelected = sortedFloors.length > 0 && selectedIds.size === sortedFloors.length;
 
-  async function handleDelete() {
-    if (!deleteTarget) return;
-    try {
-      await deleteFloor(deleteTarget.id, buildingId);
-    } catch {
-      // Error handled by interceptor
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds(allSelected ? new Set() : new Set(sortedFloors.map((f) => f.id)));
+  }
+
+  function handleLongPress(id: string) {
+    if (selectMode) return;
+    setSelectMode(true);
+    setSelectedIds(new Set([id]));
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }
+
+  async function handleBatchDelete() {
+    for (const id of selectedIds) {
+      try { await deleteFloor(id, buildingId); } catch { /* interceptor */ }
     }
-    setDeleteTarget(null);
+    exitSelectMode();
+    setDeleteConfirmOpen(false);
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          총 {floors.length}개 층
-        </p>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          층 추가
-        </Button>
-      </div>
-
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[100px]">레벨</TableHead>
-              <TableHead>이름</TableHead>
-              <TableHead className="w-[100px]">높이 (m)</TableHead>
-              <TableHead className="w-[100px]">경로</TableHead>
-              <TableHead className="w-[100px]">병합 DB</TableHead>
-              <TableHead className="w-[120px] text-right">액션</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortedFloors.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                  등록된 층이 없습니다.
-                </TableCell>
-              </TableRow>
-            ) : (
-              sortedFloors.map((floor) => (
-                <TableRow key={floor.id}>
-                  <TableCell className="font-medium">
-                    {floor.level > 0 ? `${floor.level}F` : `B${Math.abs(floor.level)}F`}
-                  </TableCell>
-                  <TableCell>{floor.name}</TableCell>
-                  <TableCell>{floor.height ? `${floor.height}m` : "-"}</TableCell>
-                  <TableCell>
-                    <Badge variant={floor.hasPath ? "default" : "secondary"}>
-                      {floor.hasPath ? "있음" : "없음"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <MergeBadge status={mergeStatuses[floor.id]?.status} />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => setChunkFloor(floor)} title="DB 관리">
-                        <HardDrive className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setEditTarget(floor)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(floor)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <FloorFormDialog
-        buildingId={buildingId}
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        mode="create"
-      />
-
-      {editTarget && (
-        <FloorFormDialog
-          buildingId={buildingId}
-          open={!!editTarget}
-          onOpenChange={(open) => !open && setEditTarget(null)}
-          mode="edit"
-          floor={editTarget}
-        />
+    <div className="space-y-2">
+      {selectMode && (
+        <div className="flex items-center justify-between bg-muted/50 rounded-md px-3 py-2">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="text-xs" onClick={toggleSelectAll}>
+              {allSelected ? "전체 해제" : "전체 선택"}
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              {selectedIds.size > 0 ? `${selectedIds.size}개 선택됨` : "삭제할 층을 선택하세요"}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="destructive" size="sm" className="text-xs" disabled={selectedIds.size === 0} onClick={() => setDeleteConfirmOpen(true)}>
+              <Trash2 className="h-3.5 w-3.5 mr-1" />삭제
+            </Button>
+            <Button variant="outline" size="sm" className="text-xs" onClick={exitSelectMode}>취소</Button>
+          </div>
+        </div>
       )}
 
-      {chunkFloor && (
-        <ChunkManageSheet
-          floorId={chunkFloor.id}
-          floorName={chunkFloor.name}
-          open={!!chunkFloor}
-          onOpenChange={(open) => !open && setChunkFloor(null)}
-        />
+      {sortedFloors.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+          <p className="text-sm">등록된 층이 없습니다.</p>
+          <p className="text-xs mt-1">+ 버튼으로 층을 추가하세요.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {sortedFloors.map((floor) => (
+            <FloorCard
+              key={floor.id}
+              floor={floor}
+              mergeStatus={mergeStatuses[floor.id]?.status}
+              selectMode={selectMode}
+              isSelected={selectedIds.has(floor.id)}
+              onToggleSelect={() => toggleSelect(floor.id)}
+              onLongPress={() => handleLongPress(floor.id)}
+              onEdit={() => setEditTarget(floor)}
+              onManageDb={() => setChunkFloor(floor)}
+            />
+          ))}
+        </div>
       )}
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <Button size="icon" className="fixed bottom-16 right-4 z-20 h-12 w-12 rounded-full shadow-lg" onClick={() => setCreateOpen(true)} aria-label="층 추가">
+        <Plus className="h-5 w-5" />
+      </Button>
+
+      <FloorFormDialog buildingId={buildingId} open={createOpen} onOpenChange={setCreateOpen} mode="create" />
+      {editTarget && <FloorFormDialog buildingId={buildingId} open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)} mode="edit" floor={editTarget} />}
+      {chunkFloor && <ChunkManageSheet floorId={chunkFloor.id} floorName={chunkFloor.name} open={!!chunkFloor} onOpenChange={(o) => !o && setChunkFloor(null)} />}
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>층 삭제</AlertDialogTitle>
-            <AlertDialogDescription>
-              &ldquo;{deleteTarget?.name}&rdquo; 층을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
-            </AlertDialogDescription>
+            <AlertDialogDescription>{selectedIds.size}개 층을 삭제하시겠습니까?</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-white hover:bg-destructive/90">
-              삭제
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleBatchDelete} className="bg-destructive text-white hover:bg-destructive/90">삭제</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function FloorCard({
+  floor, mergeStatus, selectMode, isSelected, onToggleSelect, onLongPress, onEdit, onManageDb,
+}: {
+  floor: FloorResponse;
+  mergeStatus: string | undefined;
+  selectMode: boolean;
+  isSelected: boolean;
+  onToggleSelect: () => void;
+  onLongPress: () => void;
+  onEdit: () => void;
+  onManageDb: () => void;
+}) {
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPress = useRef(false);
+
+  function handlePointerDown() {
+    didLongPress.current = false;
+    longPressTimer.current = setTimeout(() => { didLongPress.current = true; onLongPress(); }, 500);
+  }
+  function handlePointerUp() {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+  }
+  function handleClick() {
+    if (didLongPress.current) { didLongPress.current = false; return; }
+    if (selectMode) onToggleSelect();
+  }
+
+  const level = floor.level > 0 ? `${floor.level}F` : `B${Math.abs(floor.level)}F`;
+
+  return (
+    <div
+      className={`rounded-lg border p-3 transition-colors cursor-pointer ${isSelected ? "ring-2 ring-destructive bg-destructive/5" : "bg-background hover:bg-muted/30"}`}
+      onClick={handleClick}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex items-center justify-center h-9 w-9 rounded-md bg-primary/10 shrink-0">
+          <span className="text-xs font-bold text-primary">{level}</span>
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{floor.name}</p>
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            {floor.height && <span className="text-[11px] text-muted-foreground">{floor.height}m</span>}
+            <MergeBadge status={mergeStatus as any} />
+          </div>
+        </div>
+
+        {!selectMode && (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button variant="outline" size="sm" className="h-7 text-[11px] px-2" onClick={(e) => { e.stopPropagation(); onManageDb(); }}>
+              스캔 업로드
+            </Button>
+            <Button variant="outline" size="sm" className="h-7 text-[11px] px-2" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+              수정
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
