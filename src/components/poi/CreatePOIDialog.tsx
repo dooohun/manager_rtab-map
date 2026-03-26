@@ -128,7 +128,6 @@ export function CreatePOIDialog({
     onOpenChange(false);
   }
 
-  const isOnNode = !!pendingPoiTarget?.targetNodeId;
   const isOnEdge = !!pendingPoiTarget?.splitEdge;
 
   return (
