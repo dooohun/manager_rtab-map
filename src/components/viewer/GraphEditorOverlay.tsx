@@ -58,7 +58,7 @@ export function GraphEditorOverlay() {
   const nodePositions = useMemo(() => {
     const map = new Map<string, THREE.Vector3>();
     nodes.forEach((node) => {
-      map.set(node.id, new THREE.Vector3(node.x, node.z, node.y));
+      map.set(node.id, new THREE.Vector3(-node.x, node.z, node.y));
     });
     return map;
   }, [nodes]);
@@ -127,13 +127,6 @@ export function GraphEditorOverlay() {
       return;
     }
 
-    // Complete pending passage link
-    const pendingLink = useGraphEditorStore.getState().pendingPassageLink;
-    if (pendingLink && selectedFloorId && pendingLink.floorId !== selectedFloorId) {
-      useGraphEditorStore.getState().completePassageLink(nodeId, selectedFloorId);
-      return;
-    }
-
     if (editorMode === "view" || editorMode === "select") {
       selectNode(nodeId);
       return;
@@ -143,7 +136,16 @@ export function GraphEditorOverlay() {
       if (!edgeSourceNodeId) {
         setEdgeSource(nodeId);
       } else if (edgeSourceNodeId !== nodeId && selectedFloorId) {
-        createEdge(selectedFloorId, edgeSourceNodeId, nodeId);
+        const verticalEdgeType = useGraphEditorStore.getState().verticalEdgeType;
+        if (verticalEdgeType) {
+          // 수직 연결: 엣지 생성 + 양쪽 노드 타입 변경
+          createEdge(selectedFloorId, edgeSourceNodeId, nodeId, verticalEdgeType, true);
+          updateNode(edgeSourceNodeId, { type: "PASSAGE_ENTRY" }).catch(() => {});
+          updateNode(nodeId, { type: "PASSAGE_EXIT" }).catch(() => {});
+        } else {
+          createEdge(selectedFloorId, edgeSourceNodeId, nodeId);
+        }
+        setEdgeSource(nodeId); // 체이닝: 현재 노드가 다음 시작점
       }
       return;
     }

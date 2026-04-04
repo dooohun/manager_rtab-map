@@ -16,10 +16,10 @@ export function FloorSelector() {
 
   return (
     <Select value={selectedFloorId || ""} onValueChange={loadFloorData}>
-      <SelectTrigger className="w-full h-8 text-xs" aria-label="층 선택">
+      <SelectTrigger className="w-full h-8 text-xs bg-white text-black" aria-label="층 선택">
         <SelectValue placeholder="층 선택" />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="bg-white text-black">
         {sortedFloors.map((floor) => (
           <SelectItem key={floor.id} value={floor.id} className="text-xs">
             {formatLevel(floor.level)} {floor.name}

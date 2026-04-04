@@ -6,12 +6,12 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-/** API 좌표(x,y,z) → Three.js 좌표(x,z,y) */
+/** API 좌표(x,y,z) → Three.js 좌표(-x,z,y) */
 export function apiToThree(p: Point3D): [number, number, number] {
-  return [p.x, p.z, p.y];
+  return [-p.x, p.z, p.y];
 }
 
-/** Three.js 좌표(x,y,z) → API 좌표(x,z,y) */
+/** Three.js 좌표(x,y,z) → API 좌표(-x,z,y) */
 export function threeToApi(x: number, y: number, z: number): Point3D {
-  return { x, y: z, z: y };
+  return { x: -x, y: z, z: y };
 }

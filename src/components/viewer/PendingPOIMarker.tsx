@@ -15,7 +15,7 @@ export function PendingPOIMarker() {
   const floorHeight = selectedFloor?.height ?? 0;
 
   // Three.js 좌표계: (x, z, y) - API의 (x, y, z)에서 변환
-  const pos = new THREE.Vector3(pendingPosition.x, floorHeight, pendingPosition.y);
+  const pos = new THREE.Vector3(-pendingPosition.x, floorHeight, pendingPosition.y);
 
   return (
     <group position={pos}>

@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import { getFloorPath } from "@/api/floors";
-import type { FloorPathResponse, FloorResponse, BuildingDetailResponse } from "@/types";
+import type { FloorPathResponse, FloorResponse, BuildingDetailResponse, NodeImageResponse } from "@/types";
 
-type ViewMode = "orbit" | "top-down" | "first-person";
+type ViewMode = "orbit" | "top-down" | "fps";
 
 interface ViewerState {
   selectedFloorId: string | null;
@@ -26,6 +26,10 @@ interface ViewerState {
   setPointSize: (size: number) => void;
   setPlyUrl: (url: string | null) => void;
   setViewMode: (mode: ViewMode) => void;
+  showAllFloors: boolean;
+  setShowAllFloors: (show: boolean) => void;
+  nearbyImages: NodeImageResponse[];
+  setNearbyImages: (images: NodeImageResponse[]) => void;
   orbitTarget: { x: number; y: number; z: number } | null;
   setOrbitTarget: (target: { x: number; y: number; z: number } | null) => void;
   loadFloorData: (floorId: string) => Promise<void>;
@@ -44,6 +48,8 @@ const initialState = {
   pointSize: 0.04,
   plyUrl: null as string | null,
   viewMode: "orbit" as ViewMode,
+  showAllFloors: false,
+  nearbyImages: [] as NodeImageResponse[],
   orbitTarget: null as { x: number; y: number; z: number } | null,
 };
 
@@ -63,6 +69,8 @@ export const useViewerStore = create<ViewerState>((set) => ({
   setPointSize: (size) => set({ pointSize: size }),
   setPlyUrl: (url) => set({ plyUrl: url }),
   setViewMode: (mode) => set({ viewMode: mode }),
+  setShowAllFloors: (show) => set({ showAllFloors: show }),
+  setNearbyImages: (images) => set({ nearbyImages: images }),
   setOrbitTarget: (target) => set({ orbitTarget: target }),
 
   loadFloorData: async (floorId) => {

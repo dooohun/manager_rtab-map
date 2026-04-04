@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useGraphEditorStore, useViewerStore, usePoiStore } from "@/stores";
 import { threeToApi } from "@/lib/utils";
 import * as graphApi from "@/api/graph";
+import { setFloorY } from "./PointCloudViewer";
 
 interface PointcloudMeshProps {
   plyUrl: string | null;
@@ -73,6 +74,7 @@ export function PointcloudMesh({ plyUrl }: PointcloudMeshProps) {
         if (positions) {
           const array = positions.array as Float32Array;
           for (let i = 0; i < array.length; i += 3) {
+            array[i] = -array[i]; // X축 반전
             const apiY = array[i + 1];
             const apiZ = array[i + 2];
             array[i + 1] = apiZ; // Three.js Y = API Z (높이)
@@ -81,6 +83,7 @@ export function PointcloudMesh({ plyUrl }: PointcloudMeshProps) {
           positions.needsUpdate = true;
         }
         geo.computeBoundingBox();
+        geo.computeBoundingSphere();
         setGeometry(geo);
       },
       undefined,
@@ -133,6 +136,11 @@ export function PointcloudMesh({ plyUrl }: PointcloudMeshProps) {
       floorY: floorY + 0.1,
     };
   }, [geometry]);
+
+  // 바닥 Y값 전역 공유 (Space 배치에서 사용)
+  useEffect(() => {
+    if (floorPlane) setFloorY(floorPlane.floorY);
+  }, [floorPlane]);
 
   // Track space key to suppress clicks during camera navigation
   const spaceHeldRef = useRef(false);

@@ -115,7 +115,8 @@ export function CreatePOIDialog({
       }
 
       form.reset();
-      cancelPlacement();
+      // POI 모드 유지 — 연속 배치를 위해 모드는 해제하지 않고 대기 상태만 초기화
+      usePoiStore.getState().setPendingPoiTarget(null);
       onOpenChange(false);
     } catch (error) {
       console.error("POI 생성 실패:", error);

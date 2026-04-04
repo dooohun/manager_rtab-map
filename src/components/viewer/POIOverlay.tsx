@@ -45,7 +45,7 @@ export function POIOverlay() {
   return (
     <group>
       {visiblePois.map((poi) => {
-        const pos = new THREE.Vector3(poi.x, poi.z, poi.y);
+        const pos = new THREE.Vector3(-poi.x, poi.z, poi.y);
         const color = POI_CATEGORY_COLORS[poi.category];
         const isSelected = selectedPoiId === poi.nodeId;
 

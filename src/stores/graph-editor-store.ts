@@ -29,7 +29,8 @@ interface GraphEditorState {
   autoConnect: boolean;
   lastPlacedNodeId: string | null;
   longPressNodeId: string | null;
-  pendingPassageLink: { nodeId: string; floorId: string } | null;
+  verticalEdgeType: "VERTICAL_STAIRCASE" | "VERTICAL_ELEVATOR" | null;
+  pendingPassageLink: { nodeId: string; floorId: string; passageType: "STAIRCASE" | "ELEVATOR" } | null;
 
   setEditorActive: (active: boolean) => void;
   fetchGraph: (floorId: string) => Promise<void>;
@@ -47,9 +48,10 @@ interface GraphEditorState {
   setNodeTypeToPlace: (type: PlaceableNodeType) => void;
   setPendingPassageInfo: (info: PendingPassageInfo | null) => void;
   confirmPassageConnection: (currentFloorId: string, targetFloorId: string) => Promise<void>;
+  setVerticalEdgeType: (type: "VERTICAL_STAIRCASE" | "VERTICAL_ELEVATOR" | null) => void;
   setAutoConnect: (enabled: boolean) => void;
   setLongPressNodeId: (nodeId: string | null) => void;
-  setPendingPassageLink: (link: { nodeId: string; floorId: string } | null) => void;
+  setPendingPassageLink: (link: { nodeId: string; floorId: string; passageType: "STAIRCASE" | "ELEVATOR" } | null) => void;
   completePassageLink: (targetNodeId: string, targetFloorId: string) => Promise<void>;
   reset: () => void;
 }
@@ -68,7 +70,8 @@ const initialState = {
   autoConnect: true,
   lastPlacedNodeId: null as string | null,
   longPressNodeId: null as string | null,
-  pendingPassageLink: null as { nodeId: string; floorId: string } | null,
+  verticalEdgeType: null as "VERTICAL_STAIRCASE" | "VERTICAL_ELEVATOR" | null,
+  pendingPassageLink: null as { nodeId: string; floorId: string; passageType: "STAIRCASE" | "ELEVATOR" } | null,
 };
 
 export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
@@ -163,7 +166,7 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
 
   createEdge: async (floorId, fromNodeId, toNodeId, edgeType, isBidirectional) => {
     const newEdge = await api.createEdge(floorId, { fromNodeId, toNodeId, edgeType, isBidirectional });
-    set({ edges: [...get().edges, newEdge], edgeSourceNodeId: null });
+    set({ edges: [...get().edges, newEdge] });
     toast.success("엣지가 생성되었습니다.");
   },
 
@@ -261,6 +264,7 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
     }
   },
 
+  setVerticalEdgeType: (type) => set({ verticalEdgeType: type }),
   setAutoConnect: (enabled) => set({ autoConnect: enabled, lastPlacedNodeId: null }),
   setLongPressNodeId: (nodeId) => set({ longPressNodeId: nodeId }),
   setPendingPassageLink: (link) => set({ pendingPassageLink: link }),
@@ -271,19 +275,24 @@ export const useGraphEditorStore = create<GraphEditorState>((set, get) => ({
 
     try {
       // 양쪽 노드를 통로 타입으로 변경
-      await api.updateNode(pendingPassageLink.nodeId, { type: "PASSAGE_ENTRY" });
+      const nodeType = pendingPassageLink.passageType === "ELEVATOR" ? "PASSAGE_ENTRY" : "PASSAGE_ENTRY";
+      await api.updateNode(pendingPassageLink.nodeId, { type: nodeType });
       await api.updateNode(targetNodeId, { type: "PASSAGE_EXIT" });
 
       // 수직 엣지 생성
+      const edgeType = pendingPassageLink.passageType === "ELEVATOR"
+        ? "VERTICAL_ELEVATOR" as const
+        : "VERTICAL_STAIRCASE" as const;
       await api.createEdge(pendingPassageLink.floorId, {
         fromNodeId: pendingPassageLink.nodeId,
         toNodeId: targetNodeId,
-        edgeType: "VERTICAL_STAIRCASE",
+        edgeType,
         isBidirectional: true,
       });
 
-      set({ pendingPassageLink: null });
-      toast.success("통로가 연결되었습니다.");
+      // 체이닝: 현재 노드를 다음 시작점으로 유지
+      set({ pendingPassageLink: { nodeId: targetNodeId, floorId: targetFloorId, passageType: pendingPassageLink.passageType } });
+      toast.success("통로가 연결되었습니다. 다음 층 노드를 클릭하여 계속 연결하세요.");
 
       // 현재 층 그래프 새로고침
       await get().fetchGraph(targetFloorId);

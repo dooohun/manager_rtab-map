@@ -162,7 +162,7 @@ export function ViewerControls({ isFullscreen = false, onToggleFullscreen, varia
           type="single"
           value={viewMode}
           onValueChange={(v) => {
-            if (v) setViewMode(v as "orbit" | "top-down" | "first-person");
+            if (v) setViewMode(v as "orbit" | "top-down" | "fps");
           }}
           className="w-full"
         >
@@ -174,9 +174,9 @@ export function ViewerControls({ isFullscreen = false, onToggleFullscreen, varia
             <Scan className="h-3.5 w-3.5" />
             탑뷰
           </ToggleGroupItem>
-          <ToggleGroupItem value="first-person" className="flex-1 text-xs gap-1">
+          <ToggleGroupItem value="fps" className="flex-1 text-xs gap-1">
             <Eye className="h-3.5 w-3.5" />
-            1인칭
+            FPS
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
