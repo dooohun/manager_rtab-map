@@ -81,12 +81,9 @@ function FPSCameraController() {
 
   // R3F의 events.compute를 오버라이드: FPS에서 항상 화면 중앙(0,0)으로 raycast
   const events = useThree((s) => s.events);
-  const storeCamera = useThree((s) => s.camera);
-  const storeRaycaster = useThree((s) => s.raycaster);
-  const storePointer = useThree((s) => s.pointer);
   useEffect(() => {
     const original = events.compute;
-    events.compute = (event: any, root: any) => {
+    events.compute = (event, root) => {
       if (document.pointerLockElement) {
         root.pointer.set(0, 0);
         root.raycaster.setFromCamera(root.pointer, root.camera);
