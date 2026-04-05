@@ -41,7 +41,7 @@ export function setFloorY(y: number) { _floorY = y; }
 
 /* ── FPS Camera Controller ─────────────────────────────────────── */
 function FPSCameraController() {
-  const { camera, gl, raycaster } = useThree();
+  const { camera, gl } = useThree();
   const yawRef = useRef(0);
   const pitchRef = useRef(0);
   const initRef = useRef(false);
@@ -79,14 +79,28 @@ function FPSCameraController() {
     return () => document.removeEventListener("mousemove", onMouseMove);
   }, [gl]);
 
-  useFrame((state, dt) => {
+  // R3F의 events.compute를 오버라이드: FPS에서 항상 화면 중앙(0,0)으로 raycast
+  const events = useThree((s) => s.events);
+  const storeCamera = useThree((s) => s.camera);
+  const storeRaycaster = useThree((s) => s.raycaster);
+  const storePointer = useThree((s) => s.pointer);
+  useEffect(() => {
+    const original = events.compute;
+    events.compute = (event: any, root: any) => {
+      if (document.pointerLockElement) {
+        root.pointer.set(0, 0);
+        root.raycaster.setFromCamera(root.pointer, root.camera);
+      } else if (original) {
+        original(event, root);
+      }
+    };
+    return () => { events.compute = original; };
+  }, [events]);
+
+  useFrame((_, dt) => {
     // 회전 적용 (매 프레임)
     const euler = new THREE.Euler(pitchRef.current, yawRef.current, 0, "YXZ");
     camera.quaternion.setFromEuler(euler);
-
-    // FPS 모드: pointer를 화면 중앙으로 강제 (에임 = 클릭 타겟)
-    state.pointer.set(0, 0);
-    raycaster.setFromCamera(state.pointer, camera);
 
     // 이동
     if (globalKeys.size === 0) return;
