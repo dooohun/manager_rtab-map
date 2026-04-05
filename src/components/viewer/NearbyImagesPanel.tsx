@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { fetchNearbyImages } from "@/api/node-images";
 import { useViewerStore } from "@/stores";
 import { threeToApi } from "@/lib/utils";
-import type { NodeImageResponse } from "@/types";
+
 
 const FETCH_INTERVAL_MS = 800;
 const MIN_MOVE_DISTANCE = 0.3;
@@ -65,6 +65,7 @@ function ImagePanel() {
   const viewMode = useViewerStore((s) => s.viewMode);
   const [selectedIdx, setSelectedIdx] = useState(0);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setSelectedIdx(0), [images]);
 
   if (viewMode !== "fps" || images.length === 0) return null;

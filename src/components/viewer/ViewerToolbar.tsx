@@ -61,7 +61,7 @@ export function ViewerToolbar() {
 
   function handleStartPassageLink() {
     if (!longPressNodeId || !selectedFloorId) return;
-    setPendingPassageLink({ nodeId: longPressNodeId, floorId: selectedFloorId });
+    setPendingPassageLink({ nodeId: longPressNodeId, floorId: selectedFloorId, passageType: "STAIRCASE" });
     setLongPressNodeId(null);
     toast("다른 층으로 이동 후 연결할 노드를 탭하세요.");
   }

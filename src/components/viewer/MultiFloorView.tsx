@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import * as THREE from "three";
 import { PLYLoader } from "three/examples/jsm/loaders/PLYLoader.js";
 import { Line } from "@react-three/drei";
@@ -20,7 +20,7 @@ interface FloorData {
 export function MultiFloorView() {
   const floors = useViewerStore((s) => s.floors);
   const [floorDataList, setFloorDataList] = useState<FloorData[]>([]);
-  const verticalSource = useGraphEditorStore((s) => s.edgeSourceNodeId);
+
 
   // 모든 층의 PLY + 그래프 로드
   useEffect(() => {
@@ -99,7 +99,7 @@ function FloorLayer({ data }: { data: FloorData }) {
   const { floor, geometry, nodes, edges, yOffset } = data;
   const editorMode = useGraphEditorStore((s) => s.editorMode);
   const edgeSourceNodeId = useGraphEditorStore((s) => s.edgeSourceNodeId);
-  const selectedFloorId = useViewerStore((s) => s.selectedFloorId);
+
 
   const handleNodeClick = (node: PathNodeResponse) => {
     const gs = useGraphEditorStore.getState();
