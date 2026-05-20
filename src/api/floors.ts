@@ -32,5 +32,7 @@ export async function getFloorPath(floorId: string): Promise<FloorPathResponse> 
 
 export function getFloorPlyUrl(floorId: string): string {
   const baseUrl = springApi.defaults.baseURL ?? "";
-  return `${baseUrl}/api/v1/floors/${floorId}/pointcloud`;
+  // A/B 시각화 비교용. 기본은 B(rtabmap-native) cloud 표시 — 그래프/localize 응답은
+  // 여전히 A. 다시 A로 돌리려면 끝 /v2만 제거.
+  return `${baseUrl}/api/v1/floors/${floorId}/pointcloud/v2`;
 }

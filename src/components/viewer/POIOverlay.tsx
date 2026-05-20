@@ -4,17 +4,20 @@ import type { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { MapPin } from "lucide-react";
 import { usePoiStore, useViewerStore } from "@/stores";
-import type { PoiCategory } from "@/types";
 
-const POI_CATEGORY_COLORS: Record<PoiCategory, string> = {
-  CLASSROOM: "#3b82f6", // blue
-  OFFICE: "#8b5cf6", // purple
-  RESTROOM: "#10b981", // green
-  EXIT: "#ef4444", // red
-  ELEVATOR: "#f59e0b", // amber
-  STAIRCASE: "#06b6d4", // cyan
-  OTHER: "#6b7280", // gray
+const POI_CATEGORY_COLORS: Record<string, string> = {
+  classroom: "#3b82f6",
+  office: "#8b5cf6",
+  restroom: "#10b981",
+  exit: "#ef4444",
+  entrance: "#ef4444",
+  elevator: "#f59e0b",
+  staircase: "#06b6d4",
+  door: "#a855f7",
+  other: "#6b7280",
 };
+
+const DEFAULT_COLOR = "#6b7280";
 
 export function POIOverlay() {
   const pois = usePoiStore((s) => s.pois);
@@ -22,18 +25,12 @@ export function POIOverlay() {
   const selectPoi = usePoiStore((s) => s.selectPoi);
   const selectedFloorId = useViewerStore((s) => s.selectedFloorId);
   const showPOI = useViewerStore((s) => s.showPOI);
-  const floors = useViewerStore((s) => s.building?.floors || []);
-
-  const selectedFloor = useMemo(() => {
-    return floors.find((f) => f.id === selectedFloorId);
-  }, [floors, selectedFloorId]);
 
   const visiblePois = useMemo(() => {
-    if (!selectedFloor) return [];
-    return pois.filter((poi) => poi.floorLevel === selectedFloor.level);
-  }, [pois, selectedFloor]);
+    return pois.filter((poi) => poi.floorId === selectedFloorId && poi.displayPoint != null);
+  }, [pois, selectedFloorId]);
 
-  if (!showPOI || !selectedFloor || visiblePois.length === 0) {
+  if (!showPOI || visiblePois.length === 0) {
     return null;
   }
 
@@ -45,16 +42,17 @@ export function POIOverlay() {
   return (
     <group>
       {visiblePois.map((poi) => {
-        const pos = new THREE.Vector3(-poi.x, poi.z, poi.y);
-        const color = POI_CATEGORY_COLORS[poi.category];
-        const isSelected = selectedPoiId === poi.nodeId;
+        const pt = poi.displayPoint!;
+        const pos = new THREE.Vector3(-pt.x, pt.z, pt.y);
+        const color = POI_CATEGORY_COLORS[poi.category?.toLowerCase()] ?? DEFAULT_COLOR;
+        const isSelected = selectedPoiId === poi.poiId;
 
         return (
-          <group key={poi.nodeId} position={pos}>
+          <group key={poi.poiId} position={pos}>
             {/* POI 마커 */}
             <mesh
               position={[0, 0.5, 0]}
-              onClick={(e) => handlePoiClick(e, poi.nodeId)}
+              onClick={(e) => handlePoiClick(e, poi.poiId)}
               onPointerOver={() => (document.body.style.cursor = "pointer")}
               onPointerOut={() => (document.body.style.cursor = "auto")}
             >
@@ -69,7 +67,7 @@ export function POIOverlay() {
             {/* POI 핀 상단 */}
             <mesh
               position={[0, 1.2, 0]}
-              onClick={(e) => handlePoiClick(e, poi.nodeId)}
+              onClick={(e) => handlePoiClick(e, poi.poiId)}
               onPointerOver={() => (document.body.style.cursor = "pointer")}
               onPointerOut={() => (document.body.style.cursor = "auto")}
             >

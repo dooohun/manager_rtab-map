@@ -26,7 +26,7 @@ export function FloorTable({ buildingId, floors }: FloorTableProps) {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   useEffect(() => {
-    if (floors.length > 0) fetchAllMergeStatuses(floors.map((f) => f.id));
+    if (floors.length > 0) fetchAllMergeStatuses(floors.map((f) => f.floorId));
   }, [floors]);
 
   const sortedFloors = [...floors].sort((a, b) => b.level - a.level);
@@ -37,7 +37,7 @@ export function FloorTable({ buildingId, floors }: FloorTableProps) {
   }
 
   function toggleSelectAll() {
-    setSelectedIds(allSelected ? new Set() : new Set(sortedFloors.map((f) => f.id)));
+    setSelectedIds(allSelected ? new Set() : new Set(sortedFloors.map((f) => f.floorId)));
   }
 
   function handleLongPress(id: string) {
@@ -89,13 +89,13 @@ export function FloorTable({ buildingId, floors }: FloorTableProps) {
         <div className="space-y-2">
           {sortedFloors.map((floor) => (
             <FloorCard
-              key={floor.id}
+              key={floor.floorId}
               floor={floor}
-              mergeStatus={mergeStatuses[floor.id]?.status}
+              mergeStatus={mergeStatuses[floor.floorId]?.status}
               selectMode={selectMode}
-              isSelected={selectedIds.has(floor.id)}
-              onToggleSelect={() => toggleSelect(floor.id)}
-              onLongPress={() => handleLongPress(floor.id)}
+              isSelected={selectedIds.has(floor.floorId)}
+              onToggleSelect={() => toggleSelect(floor.floorId)}
+              onLongPress={() => handleLongPress(floor.floorId)}
               onEdit={() => setEditTarget(floor)}
               onManageDb={() => setChunkFloor(floor)}
             />
@@ -109,7 +109,7 @@ export function FloorTable({ buildingId, floors }: FloorTableProps) {
 
       <FloorFormDialog buildingId={buildingId} open={createOpen} onOpenChange={setCreateOpen} mode="create" />
       {editTarget && <FloorFormDialog buildingId={buildingId} open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)} mode="edit" floor={editTarget} />}
-      {chunkFloor && <ChunkManageSheet floorId={chunkFloor.id} floorName={chunkFloor.name} open={!!chunkFloor} onOpenChange={(o) => !o && setChunkFloor(null)} />}
+      {chunkFloor && <ChunkManageSheet floorId={chunkFloor.floorId} floorName={chunkFloor.name} open={!!chunkFloor} onOpenChange={(o) => !o && setChunkFloor(null)} />}
 
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent>

@@ -21,7 +21,7 @@ export function FloorSelector() {
       </SelectTrigger>
       <SelectContent className="bg-white text-black">
         {sortedFloors.map((floor) => (
-          <SelectItem key={floor.id} value={floor.id} className="text-xs">
+          <SelectItem key={floor.floorId} value={floor.floorId} className="text-xs">
             {formatLevel(floor.level)} {floor.name}
           </SelectItem>
         ))}

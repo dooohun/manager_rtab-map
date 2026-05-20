@@ -26,16 +26,16 @@ import {
 } from "@/components/ui/select";
 import { usePoiStore, useViewerStore, useGraphEditorStore } from "@/stores";
 import * as graphApi from "@/api/graph";
-import type { PoiCategory } from "@/types";
 
-const POI_CATEGORY_OPTIONS: { value: PoiCategory; label: string }[] = [
-  { value: "CLASSROOM", label: "강의실" },
-  { value: "OFFICE", label: "사무실" },
-  { value: "RESTROOM", label: "화장실" },
-  { value: "EXIT", label: "출구" },
-  { value: "ELEVATOR", label: "엘리베이터" },
-  { value: "STAIRCASE", label: "계단" },
-  { value: "OTHER", label: "기타" },
+const POI_CATEGORY_OPTIONS: { value: string; label: string }[] = [
+  { value: "classroom", label: "강의실" },
+  { value: "office", label: "사무실" },
+  { value: "restroom", label: "화장실" },
+  { value: "entrance", label: "출구/입구" },
+  { value: "elevator", label: "엘리베이터" },
+  { value: "staircase", label: "계단" },
+  { value: "door", label: "문" },
+  { value: "other", label: "기타" },
 ];
 
 interface CreatePOIDialogProps {
@@ -49,73 +49,73 @@ export function CreatePOIDialog({
   open,
   onOpenChange,
 }: CreatePOIDialogProps) {
-  void buildingId; // used by parent for context
-  const registerPoiToNode = usePoiStore((s) => s.registerPoiToNode);
+  const createPoi = usePoiStore((s) => s.createPoi);
   const pendingPoiTarget = usePoiStore((s) => s.pendingPoiTarget);
   const cancelPlacement = usePoiStore((s) => s.cancelPlacement);
   const selectedFloorId = useViewerStore((s) => s.selectedFloorId);
+  const selectedAreaId = useViewerStore((s) => s.selectedAreaId);
   const fetchGraph = useGraphEditorStore((s) => s.fetchGraph);
 
   const form = useForm({
     defaultValues: {
       name: "",
-      category: "OTHER" as PoiCategory,
+      category: "other",
     },
   });
 
   useEffect(() => {
     if (open) {
-      form.reset({ name: "", category: "OTHER" });
+      form.reset({ name: "", category: "other" });
     }
   }, [open, form]);
 
-  async function onSubmit(values: { name: string; category: PoiCategory }) {
+  async function onSubmit(values: { name: string; category: string }) {
     if (!values.name.trim()) return;
-    if (!pendingPoiTarget || !selectedFloorId) return;
+    if (!pendingPoiTarget || !selectedAreaId) return;
 
     try {
-      if (pendingPoiTarget.targetNodeId) {
-        // 기존 노드에 POI 등록
-        await registerPoiToNode(pendingPoiTarget.targetNodeId, {
-          name: values.name,
-          category: values.category,
-        });
-      } else if (pendingPoiTarget.splitEdge) {
-        // 1. 엣지 위에 새 노드 생성
-        const newNode = await graphApi.createNode(selectedFloorId, {
+      let routeNodeId = pendingPoiTarget.existingNodeId;
+
+      if (pendingPoiTarget.splitEdge) {
+        // 1. 엣지 위에 새 poi_attach 노드 생성
+        const newNode = await graphApi.createNode(selectedAreaId, {
           x: pendingPoiTarget.x,
           y: pendingPoiTarget.y,
           z: pendingPoiTarget.z,
-          type: "POI",
+          nodeType: "poi_attach",
         });
 
         // 2. 기존 엣지 삭제
         await graphApi.deleteEdge(pendingPoiTarget.splitEdge.edgeId);
 
-        // 3. 분할된 엣지 2개 생성 (fromNode → newNode, newNode → toNode)
-        await graphApi.createEdge(selectedFloorId, {
+        // 3. 분할된 엣지 2개
+        await graphApi.createEdge(selectedAreaId, {
           fromNodeId: pendingPoiTarget.splitEdge.fromNodeId,
-          toNodeId: newNode.id,
-          isBidirectional: true,
+          toNodeId: newNode.nodeId,
         });
-        await graphApi.createEdge(selectedFloorId, {
-          fromNodeId: newNode.id,
+        await graphApi.createEdge(selectedAreaId, {
+          fromNodeId: newNode.nodeId,
           toNodeId: pendingPoiTarget.splitEdge.toNodeId,
-          isBidirectional: true,
         });
 
-        // 4. 새 노드에 POI 등록
-        await registerPoiToNode(newNode.id, {
-          name: values.name,
-          category: values.category,
-        });
+        routeNodeId = newNode.nodeId;
+      }
 
-        // 5. 그래프 새로고침
-        await fetchGraph(selectedFloorId);
+      await createPoi(buildingId, {
+        areaId: selectedAreaId,
+        name: values.name,
+        category: values.category,
+        x: pendingPoiTarget.x,
+        y: pendingPoiTarget.y,
+        z: pendingPoiTarget.z,
+        routeNodeId,
+      });
+
+      if (selectedFloorId) {
+        await fetchGraph(selectedFloorId, selectedAreaId);
       }
 
       form.reset();
-      // POI 모드 유지 — 연속 배치를 위해 모드는 해제하지 않고 대기 상태만 초기화
       usePoiStore.getState().setPendingPoiTarget(null);
       onOpenChange(false);
     } catch (error) {

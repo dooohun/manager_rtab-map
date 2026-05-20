@@ -8,17 +8,32 @@ import { threeToApi } from "@/lib/utils";
 import { updateNode } from "@/api/graph";
 
 const NODE_COLORS: Record<string, string> = {
-  WAYPOINT: "#22d3ee",
-  JUNCTION: "#f59e0b",
-  POI: "#3b82f6",
-  PASSAGE_ENTRY: "#4ade80",
-  PASSAGE_EXIT: "#f87171",
+  corridor: "#22d3ee",
+  junction: "#f59e0b",
+  endpoint: "#f87171",
+  poi: "#3b82f6",
+  poi_attach: "#4ade80",
 };
 
+// 층간연결 노드는 label이 "TYPE:KEY" prefix로 식별. type별 색상.
+const VERTICAL_COLORS: Record<string, string> = {
+  STAIRCASE: "#a78bfa",   // 보라 — 계단
+  ELEVATOR: "#fb923c",    // 주황 — 엘리베이터
+  ESCALATOR: "#f472b6",   // 핑크 — 에스컬레이터
+};
+
+function verticalColorOf(label: string | null | undefined): string | null {
+  if (!label) return null;
+  const colonIdx = label.indexOf(":");
+  if (colonIdx <= 0) return null;
+  const type = label.slice(0, colonIdx).toUpperCase();
+  return VERTICAL_COLORS[type] ?? null;
+}
+
 const EDGE_COLORS: Record<string, string> = {
-  HORIZONTAL: "#22d3ee",
-  VERTICAL_STAIRCASE: "#f59e0b",
-  VERTICAL_ELEVATOR: "#8b5cf6",
+  rtabmap_link: "#22d3ee",
+  poi_spur: "#3b82f6",
+  vertical_connector: "#a855f7",
 };
 
 function projectPointOnEdge(
@@ -47,6 +62,7 @@ export function GraphEditorOverlay() {
   const setEdgeSource = useGraphEditorStore((s) => s.setEdgeSource);
   const createEdge = useGraphEditorStore((s) => s.createEdge);
   const selectedFloorId = useViewerStore((s) => s.selectedFloorId);
+  const selectedAreaId = useViewerStore((s) => s.selectedAreaId);
   const isPlacementMode = usePoiStore((s) => s.isPlacementMode);
   const setPendingPoiTarget = usePoiStore((s) => s.setPendingPoiTarget);
 
@@ -58,7 +74,7 @@ export function GraphEditorOverlay() {
   const nodePositions = useMemo(() => {
     const map = new Map<string, THREE.Vector3>();
     nodes.forEach((node) => {
-      map.set(node.id, new THREE.Vector3(-node.x, node.z, node.y));
+      map.set(node.nodeId, new THREE.Vector3(-node.x, node.z, node.y));
     });
     return map;
   }, [nodes]);
@@ -92,12 +108,14 @@ export function GraphEditorOverlay() {
     const apiCoords = threeToApi(dragPos.x, dragPos.y, dragPos.z);
     updateNode(dragNodeId, { x: apiCoords.x, y: apiCoords.y, z: apiCoords.z })
       .then(() => {
-        useGraphEditorStore.getState().fetchGraph(selectedFloorId!);
+        if (selectedFloorId) {
+          useGraphEditorStore.getState().fetchGraph(selectedFloorId, selectedAreaId ?? undefined);
+        }
       })
       .catch(() => {});
     setDragNodeId(null);
     setDragPos(null);
-  }, [dragNodeId, dragPos, selectedFloorId]);
+  }, [dragNodeId, dragPos, selectedFloorId, selectedAreaId]);
 
   // Track space key to suppress clicks during camera navigation
   const spaceHeldRef = useRef(false);
@@ -117,11 +135,11 @@ export function GraphEditorOverlay() {
     if (spaceHeldRef.current) return;
 
     if (isPlacementMode) {
-      const node = nodes.find((n) => n.id === nodeId);
+      const node = nodes.find((n) => n.nodeId === nodeId);
       if (node) {
         setPendingPoiTarget({
           x: node.x, y: node.y, z: node.z,
-          targetNodeId: node.id,
+          existingNodeId: node.nodeId,
         });
       }
       return;
@@ -135,16 +153,8 @@ export function GraphEditorOverlay() {
     if (editorMode === "add-edge") {
       if (!edgeSourceNodeId) {
         setEdgeSource(nodeId);
-      } else if (edgeSourceNodeId !== nodeId && selectedFloorId) {
-        const verticalEdgeType = useGraphEditorStore.getState().verticalEdgeType;
-        if (verticalEdgeType) {
-          // 수직 연결: 엣지 생성 + 양쪽 노드 타입 변경
-          createEdge(selectedFloorId, edgeSourceNodeId, nodeId, verticalEdgeType, true);
-          updateNode(edgeSourceNodeId, { type: "PASSAGE_ENTRY" }).catch(() => {});
-          updateNode(nodeId, { type: "PASSAGE_EXIT" }).catch(() => {});
-        } else {
-          createEdge(selectedFloorId, edgeSourceNodeId, nodeId);
-        }
+      } else if (edgeSourceNodeId !== nodeId && selectedAreaId) {
+        createEdge(selectedAreaId, edgeSourceNodeId, nodeId);
         setEdgeSource(nodeId); // 체이닝: 현재 노드가 다음 시작점
       }
       return;
@@ -157,16 +167,16 @@ export function GraphEditorOverlay() {
 
     if (isPlacementMode) {
       const clickApi = threeToApi(e.point.x, e.point.y, e.point.z);
-      const edge = edges.find((ed) => ed.id === edgeId);
+      const edge = edges.find((ed) => ed.edgeId === edgeId);
       if (edge) {
-        const fromNode = nodes.find((n) => n.id === edge.fromNodeId);
-        const toNode = nodes.find((n) => n.id === edge.toNodeId);
+        const fromNode = nodes.find((n) => n.nodeId === edge.fromNodeId);
+        const toNode = nodes.find((n) => n.nodeId === edge.toNodeId);
         if (fromNode && toNode) {
           const proj = projectPointOnEdge(clickApi.x, clickApi.y, fromNode.x, fromNode.y, toNode.x, toNode.y);
           setPendingPoiTarget({
             x: proj.x, y: proj.y, z: clickApi.z,
             splitEdge: {
-              edgeId: edge.id,
+              edgeId: edge.edgeId,
               fromNodeId: edge.fromNodeId,
               toNodeId: edge.toNodeId,
             },
@@ -218,8 +228,6 @@ export function GraphEditorOverlay() {
     cancelLongPress();
   }
 
-  const isPassageNode = (type: string) => type === "PASSAGE_ENTRY" || type === "PASSAGE_EXIT";
-
   return (
     <group
       onPointerMove={dragNodeId ? handleDragMove : undefined}
@@ -242,7 +250,7 @@ export function GraphEditorOverlay() {
         const toPos = nodePositions.get(edge.toNodeId);
         if (!fromPos || !toPos) return null;
 
-        const isSelected = edge.id === selectedEdgeId;
+        const isSelected = edge.edgeId === selectedEdgeId;
         const color = isSelected ? "#ffffff" : EDGE_COLORS[edge.edgeType] ?? "#22d3ee";
 
         const direction = new THREE.Vector3().subVectors(toPos, fromPos);
@@ -252,13 +260,11 @@ export function GraphEditorOverlay() {
         quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
 
         return (
-          <group key={`edge-${edge.id}`}>
+          <group key={`edge-${edge.edgeId}`}>
             <Line
               points={[fromPos, toPos]}
               color={color}
               lineWidth={isSelected ? 4 : 2.5}
-              dashed={!edge.isBidirectional}
-              dashScale={5}
               transparent
               opacity={0.9}
             />
@@ -266,7 +272,11 @@ export function GraphEditorOverlay() {
               <mesh
                 position={center}
                 quaternion={quaternion}
-                onClick={(e) => handleEdgeClick(e, edge.id)}
+                onClick={(e) => handleEdgeClick(e, edge.edgeId)}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  useGraphEditorStore.getState().setEdgeWidthDialogId(edge.edgeId);
+                }}
               >
                 <cylinderGeometry args={[0.25, 0.25, length, 8]} />
                 <meshBasicMaterial transparent opacity={0} depthWrite={false} />
@@ -278,32 +288,31 @@ export function GraphEditorOverlay() {
 
       {/* Nodes */}
       {nodes.map((node) => {
-        const isDragging = node.id === dragNodeId;
-        const pos = isDragging && dragPos ? dragPos : nodePositions.get(node.id);
+        const isDragging = node.nodeId === dragNodeId;
+        const pos = isDragging && dragPos ? dragPos : nodePositions.get(node.nodeId);
         if (!pos) return null;
 
-        const isSelected = node.id === selectedNodeId;
-        const isEdgeSource = node.id === edgeSourceNodeId;
+        const isSelected = node.nodeId === selectedNodeId;
+        const isEdgeSource = node.nodeId === edgeSourceNodeId;
+        const verticalColor = verticalColorOf(node.label);
         const color = isSelected
           ? "#ffffff"
           : isEdgeSource
             ? "#fbbf24"
-            : NODE_COLORS[node.type] ?? "#22d3ee";
+            : verticalColor ?? NODE_COLORS[node.nodeType] ?? "#22d3ee";
 
         const radius = isSelected || isEdgeSource
           ? 0.45
-          : isPassageNode(node.type)
-            ? 0.4
-            : node.type === "JUNCTION"
-              ? 0.35
-              : 0.3;
+          : node.nodeType === "junction"
+            ? 0.35
+            : 0.3;
 
         return (
-          <group key={`node-${node.id}`}>
+          <group key={`node-${node.nodeId}`}>
             <mesh
               position={pos}
-              onClick={(e) => { if (didLongPressRef.current) { didLongPressRef.current = false; return; } handleNodeClick(e, node.id); }}
-              onPointerDown={(e) => handleNodePointerDown(e, node.id)}
+              onClick={(e) => { if (didLongPressRef.current) { didLongPressRef.current = false; return; } handleNodeClick(e, node.nodeId); }}
+              onPointerDown={(e) => handleNodePointerDown(e, node.nodeId)}
               onPointerUp={handleNodePointerUp}
               onPointerMove={handleNodePointerMove}
               onPointerLeave={handleNodePointerUp}
@@ -314,20 +323,12 @@ export function GraphEditorOverlay() {
                 document.body.style.cursor = "auto";
               }}
             >
-              {isPassageNode(node.type) ? (
-                <octahedronGeometry args={[radius]} />
-              ) : (
-                <sphereGeometry args={[radius, 16, 16]} />
-              )}
+              <sphereGeometry args={[radius, 16, 16]} />
               <meshBasicMaterial color={color} />
             </mesh>
             {isSelected && !isDragging && (
               <mesh position={pos}>
-                {isPassageNode(node.type) ? (
-                  <octahedronGeometry args={[radius + 0.08]} />
-                ) : (
-                  <sphereGeometry args={[radius + 0.08, 16, 16]} />
-                )}
+                <sphereGeometry args={[radius + 0.08, 16, 16]} />
                 <meshBasicMaterial color="#ffffff" transparent opacity={0.3} depthWrite={false} />
               </mesh>
             )}

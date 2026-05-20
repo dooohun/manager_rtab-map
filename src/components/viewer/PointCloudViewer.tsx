@@ -9,6 +9,7 @@ import { POIOverlay } from "./POIOverlay";
 import { PendingPOIMarker } from "./PendingPOIMarker";
 import { PointcloudMesh } from "./PointcloudMesh";
 import { GraphEditorOverlay } from "./GraphEditorOverlay";
+import { PolygonOverlay } from "./PolygonOverlay";
 
 /* ── 상수 ──────────────────────────────────────────────────────── */
 const MOVE_KEYS = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE",
@@ -18,7 +19,7 @@ const MOVE_SPEED = 5;
 const BOOST_MULTIPLIER = 3;
 const MAX_PITCH = Math.PI / 2 - 0.05;
 
-/* ── 전역 키 상태 (컴포넌트 마운트/언마운트와 무관하게 유지) ──── */
+/* ── 전역 키 상태 ───────────────────────────────────────────────── */
 const globalKeys = new Set<string>();
 (() => {
   const onDown = (e: KeyboardEvent) => {
@@ -33,9 +34,8 @@ const globalKeys = new Set<string>();
   window.addEventListener("blur", onBlur);
 })();
 
-/* ── FPS 카메라 위치 공유 (Space 배치에서 사용) ──────────────────── */
+/* ── FPS 카메라 위치 공유 ──────────────────────────────────────── */
 let _fpsCameraPos: { x: number; y: number; z: number } | null = null;
-/** PointcloudMesh에서 계산한 바닥 Y값 공유 */
 export let _floorY = 0;
 export function setFloorY(y: number) { _floorY = y; }
 
@@ -46,7 +46,6 @@ function FPSCameraController() {
   const pitchRef = useRef(0);
   const initRef = useRef(false);
 
-  // FPS 진입 시 현재 카메라 방향에서 yaw/pitch 동기화 + bounds 중심으로 이동
   useEffect(() => {
     if (initRef.current) return;
     initRef.current = true;
@@ -56,7 +55,7 @@ function FPSCameraController() {
       const { minX, maxX, minY, maxY } = floorPath.bounds;
       const cx = (minX + maxX) / 2;
       const cz = (minY + maxY) / 2;
-      camera.position.set(cx, 1.6, cz); // 사람 눈높이
+      camera.position.set(cx, 1.6, cz);
     }
 
     const dir = new THREE.Vector3();
@@ -65,7 +64,6 @@ function FPSCameraController() {
     pitchRef.current = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, Math.asin(THREE.MathUtils.clamp(dir.y, -1, 1))));
   }, [camera]);
 
-  // Pointer Lock mousemove
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
       if (document.pointerLockElement !== gl.domElement) return;
@@ -79,7 +77,6 @@ function FPSCameraController() {
     return () => document.removeEventListener("mousemove", onMouseMove);
   }, [gl]);
 
-  // R3F의 events.compute를 오버라이드: FPS에서 항상 화면 중앙(0,0)으로 raycast
   const events = useThree((s) => s.events);
   useEffect(() => {
     const original = events.compute;
@@ -95,11 +92,9 @@ function FPSCameraController() {
   }, [events]);
 
   useFrame((_, dt) => {
-    // 회전 적용 (매 프레임)
     const euler = new THREE.Euler(pitchRef.current, yawRef.current, 0, "YXZ");
     camera.quaternion.setFromEuler(euler);
 
-    // 이동
     if (globalKeys.size === 0) return;
     const boosted = globalKeys.has("ShiftLeft") || globalKeys.has("ShiftRight");
     const step = MOVE_SPEED * Math.min(dt, 0.05) * (boosted ? BOOST_MULTIPLIER : 1);
@@ -121,7 +116,6 @@ function FPSCameraController() {
 
     if (delta.lengthSq() > 0) camera.position.add(delta);
 
-    // Space 배치용 카메라 위치 공유
     _fpsCameraPos = { x: camera.position.x, y: camera.position.y, z: camera.position.z };
   });
 
@@ -179,7 +173,6 @@ function OrbitCameraController() {
     useViewerStore.getState().setOrbitTarget(null);
   }, [orbitTarget]);
 
-  // Space 키
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
       if (e.code === "Space") { e.preventDefault(); setSpaceHeld(true); }
@@ -192,7 +185,6 @@ function OrbitCameraController() {
     return () => { window.removeEventListener("keydown", onDown); window.removeEventListener("keyup", onUp); };
   }, []);
 
-  // WASD 이동 (orbit 모드)
   useFrame((_, dt) => {
     if (!controlsRef.current || globalKeys.size === 0) return;
     const controls = controlsRef.current;
@@ -255,6 +247,7 @@ function SceneContent() {
       />
       {showPointcloud && <PointcloudMesh plyUrl={plyUrl} />}
       {isEditorActive && <GraphEditorOverlay />}
+      <PolygonOverlay />
       <POIOverlay />
       <PendingPOIMarker />
       {viewMode === "fps" ? <FPSCameraController /> : <OrbitCameraController />}
@@ -277,12 +270,12 @@ function Crosshair() {
 /* ── Mode Bar ──────────────────────────────────────────────────── */
 const MODE_SLOTS = [
   { key: "1", id: "view", label: "보기" },
-  { key: "2", id: "waypoint", label: "노드" },
+  { key: "2", id: "node", label: "노드" },
   { key: "3", id: "edge", label: "엣지" },
   { key: "4", id: "select", label: "선택" },
-  { key: "5", id: "staircase", label: "계단" },
-  { key: "6", id: "elevator", label: "엘리베이터" },
-  { key: "7", id: "poi", label: "POI" },
+  { key: "5", id: "poi", label: "POI 배치" },
+  { key: "6", id: "corner", label: "코너" },
+  { key: "7", id: "vertical", label: "층간" },
 ] as const;
 
 function selectMode(slotId: string) {
@@ -290,48 +283,43 @@ function selectMode(slotId: string) {
   const poi = usePoiStore.getState();
   switch (slotId) {
     case "view": store.setEditorMode("view"); poi.setPlacementMode(false); break;
-    case "waypoint": store.setEditorMode("add-node"); store.setNodeTypeToPlace("WAYPOINT"); poi.setPlacementMode(false); break;
-    case "edge": store.setEditorMode("add-edge"); store.setVerticalEdgeType(null); poi.setPlacementMode(false); break;
+    case "node":
+      store.setEditorMode("add-node");
+      // 이전에 vertical을 선택했다면 일반 노드 모드(corridor)로 복귀해야 사용자가 2번 눌렀을 때
+      // 기대대로 동작. vertical은 7번 단축키에서만 명시적으로 활성.
+      if (store.nodeTypeToPlace === "vertical") store.setNodeTypeToPlace("corridor");
+      poi.setPlacementMode(false);
+      break;
+    case "edge": store.setEditorMode("add-edge"); poi.setPlacementMode(false); break;
     case "select": store.setEditorMode("select"); poi.setPlacementMode(false); break;
-    case "staircase":
-      store.setEditorMode("add-edge");
-      store.setVerticalEdgeType("VERTICAL_STAIRCASE");
-      store.setEdgeSource(null);
-      poi.setPlacementMode(false);
-      break;
-    case "elevator":
-      store.setEditorMode("add-edge");
-      store.setVerticalEdgeType("VERTICAL_ELEVATOR");
-      store.setEdgeSource(null);
-      poi.setPlacementMode(false);
-      break;
     case "poi": store.setEditorMode("view"); poi.setPlacementMode(true); break;
+    case "corner": store.setEditorMode("add-corner"); poi.setPlacementMode(false); break;
+    // 단축키 7 = 노드 모드 + nodeType=vertical (별도 모드 아님)
+    case "vertical":
+      store.setEditorMode("add-node");
+      store.setNodeTypeToPlace("vertical");
+      poi.setPlacementMode(false);
+      break;
   }
 }
 
 function ModeBar({ isFps }: { isFps: boolean }) {
   const editorMode = useGraphEditorStore((s) => s.editorMode);
-  const isPlacementMode = usePoiStore((s) => s.isPlacementMode);
   const nodeTypeToPlace = useGraphEditorStore((s) => s.nodeTypeToPlace);
+  const isPlacementMode = usePoiStore((s) => s.isPlacementMode);
   const autoConnect = useGraphEditorStore((s) => s.autoConnect);
-  const verticalEdgeType = useGraphEditorStore((s) => s.verticalEdgeType);
-  const edgeSourceNodeId = useGraphEditorStore((s) => s.edgeSourceNodeId);
   const floors = useViewerStore((s) => s.floors);
   const selectedFloorId = useViewerStore((s) => s.selectedFloorId);
-  const currentFloorIdx = floors.findIndex((f) => f.id === selectedFloorId);
+  const currentFloorIdx = floors.findIndex((f) => f.floorId === selectedFloorId);
   const currentFloor = currentFloorIdx >= 0 ? floors[currentFloorIdx] : null;
 
   let activeId = "view";
   if (isPlacementMode) activeId = "poi";
-  else if (editorMode === "add-node") {
-    if (nodeTypeToPlace === "STAIRCASE") activeId = "staircase";
-    else if (nodeTypeToPlace === "ELEVATOR") activeId = "elevator";
-    else activeId = "waypoint";
-  } else if (editorMode === "add-edge") {
-    if (verticalEdgeType === "VERTICAL_STAIRCASE") activeId = "staircase";
-    else if (verticalEdgeType === "VERTICAL_ELEVATOR") activeId = "elevator";
-    else activeId = "edge";
-  } else if (editorMode === "select") activeId = "select";
+  else if (editorMode === "add-corner") activeId = "corner";
+  else if (editorMode === "add-node" && nodeTypeToPlace === "vertical") activeId = "vertical";
+  else if (editorMode === "add-node") activeId = "node";
+  else if (editorMode === "add-edge") activeId = "edge";
+  else if (editorMode === "select") activeId = "select";
 
   return (
     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
@@ -352,12 +340,6 @@ function ModeBar({ isFps }: { isFps: boolean }) {
           );
         })}
       </div>
-      {verticalEdgeType && edgeSourceNodeId && (
-        <div className="mt-1.5 text-center text-xs text-amber-400 pointer-events-none">
-          {verticalEdgeType === "VERTICAL_STAIRCASE" ? "계단" : "엘리베이터"} 연결 중
-          · Z/X로 다른 층 이동 → 노드 클릭으로 연결
-        </div>
-      )}
       <div className="flex justify-center gap-3 mt-1.5 text-[10px] pointer-events-none">
         <span className={autoConnect ? "text-emerald-400" : "text-zinc-600"}>
           T: 자동연결 {autoConnect ? "ON" : "OFF"}
@@ -392,7 +374,6 @@ export function PointCloudViewer() {
   const isAddingNode = editorMode === "add-node";
   const isFps = viewMode === "fps";
 
-  // Pointer Lock ↔ viewMode 동기화
   useEffect(() => {
     const onChange = () => {
       const locked = !!document.pointerLockElement;
@@ -404,16 +385,22 @@ export function PointCloudViewer() {
     return () => document.removeEventListener("pointerlockchange", onChange);
   }, []);
 
-  // 단축키 통합
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
+        // Esc면 input에서 blur 시켜 단축키 다시 활성 (사용자가 key input에 갇히지
+        // 않도록). 그 외는 char 입력 보존을 위해 skip.
+        if (e.code === "Escape") {
+          (e.target as HTMLElement).blur();
+          e.preventDefault();
+        }
+        return;
+      }
 
-      // 1-7: 편집 모드 전환
       const modeMap: Record<string, string> = {
-        Digit1: "view", Digit2: "waypoint", Digit3: "edge", Digit4: "select",
-        Digit5: "staircase", Digit6: "elevator", Digit7: "poi",
+        Digit1: "view", Digit2: "node", Digit3: "edge", Digit4: "select", Digit5: "poi",
+        Digit6: "corner", Digit7: "vertical",
       };
       if (modeMap[e.code]) { e.preventDefault(); selectMode(modeMap[e.code]); return; }
 
@@ -422,45 +409,42 @@ export function PointCloudViewer() {
       const ps = usePoiStore.getState();
 
       switch (e.code) {
-        // T: 자동 연결 토글
         case "KeyT":
           e.preventDefault();
           gs.setAutoConnect(!gs.autoConnect);
           break;
 
-        // Z/X: 이전/다음 층
         case "KeyZ": {
           e.preventDefault();
           const floors = vs.floors;
-          const idx = floors.findIndex((f) => f.id === vs.selectedFloorId);
-          if (idx > 0) vs.loadFloorData(floors[idx - 1].id);
+          const idx = floors.findIndex((f) => f.floorId === vs.selectedFloorId);
+          if (idx > 0) vs.loadFloorData(floors[idx - 1].floorId);
           break;
         }
         case "KeyX": {
           e.preventDefault();
           const floors = vs.floors;
-          const idx = floors.findIndex((f) => f.id === vs.selectedFloorId);
-          if (idx >= 0 && idx < floors.length - 1) vs.loadFloorData(floors[idx + 1].id);
+          const idx = floors.findIndex((f) => f.floorId === vs.selectedFloorId);
+          if (idx >= 0 && idx < floors.length - 1) vs.loadFloorData(floors[idx + 1].floorId);
           break;
         }
 
-        // Space: FPS 모드에서 현재 위치에 노드/POI 배치
         case "Space": {
-          if (vs.viewMode !== "fps") break; // orbit에서는 기존 동작 유지
+          if (vs.viewMode !== "fps") break;
           e.preventDefault();
           const cam = document.querySelector("canvas");
-          if (!cam || !selectedFloorId) break;
+          if (!cam) break;
+          const areaId = vs.selectedAreaId;
+          if (!areaId) break;
 
-          // 카메라 위치를 API 좌표로 변환 (Three.js x,y,z → API x=x, y=z, z=y)
-          // threeToApi: { x, y: z, z: y } 참조
-          const editorMode = gs.editorMode;
-          const isNodeMode = editorMode === "add-node";
+          const isNodeMode = gs.editorMode === "add-node";
           const isPoiMode = ps.isPlacementMode;
 
           if (isNodeMode) {
             if (_fpsCameraPos) {
               const api = threeToApi(_fpsCameraPos.x, _floorY, _fpsCameraPos.z);
-              gs.createNode(selectedFloorId, api.x, api.y, api.z, gs.nodeTypeToPlace as any);
+              const nodeType = gs.nodeTypeToPlace === "vertical" ? "corridor" : gs.nodeTypeToPlace;
+              gs.createNode(areaId, api.x, api.y, api.z, nodeType);
             }
           } else if (isPoiMode) {
             if (_fpsCameraPos && gs.nodes.length > 0) {
@@ -473,7 +457,10 @@ export function PointCloudViewer() {
                 const d = dx * dx + dy * dy;
                 if (d < minDist) { minDist = d; closest = n; }
               }
-              ps.setPendingPoiTarget({ x: closest.x, y: closest.y, z: closest.z, targetNodeId: closest.id });
+              ps.setPendingPoiTarget({
+                x: closest.x, y: closest.y, z: closest.z,
+                existingNodeId: closest.nodeId,
+              });
             }
           }
           break;
@@ -481,14 +468,12 @@ export function PointCloudViewer() {
 
         case "Delete": case "Backspace":
           e.preventDefault();
-          if ((gs.selectedNodeId || gs.selectedEdgeId) && selectedFloorId) gs.deleteSelected(selectedFloorId);
+          if (gs.selectedNodeId || gs.selectedEdgeId) gs.deleteSelected();
           break;
         case "Escape":
           e.preventDefault();
           if (document.pointerLockElement) document.exitPointerLock();
-          else if (gs.pendingPassageLink) gs.setPendingPassageLink(null);
           else if (gs.edgeSourceNodeId) gs.setEdgeSource(null);
-          else if (gs.pendingPassageInfo) gs.setPendingPassageInfo(null);
           else { gs.selectNode(null); gs.selectEdge(null); }
           break;
       }

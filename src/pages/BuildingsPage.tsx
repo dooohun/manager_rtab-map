@@ -34,7 +34,7 @@ export default function BuildingsPage() {
   const allSelected = filteredBuildings.length > 0 && selectedIds.size === filteredBuildings.length;
 
   function toggleSelectAll() {
-    setSelectedIds(allSelected ? new Set() : new Set(filteredBuildings.map((b) => b.id)));
+    setSelectedIds(allSelected ? new Set() : new Set(filteredBuildings.map((b) => b.buildingId)));
   }
 
   function toggleSelect(id: string) {
@@ -111,12 +111,12 @@ export default function BuildingsPage() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filteredBuildings.map((building) => (
-            <div key={building.id} className={selectedIds.has(building.id) ? "ring-2 ring-destructive rounded-lg" : ""}>
+            <div key={building.buildingId} className={selectedIds.has(building.buildingId) ? "ring-2 ring-destructive rounded-lg" : ""}>
               <BuildingCard
                 building={building}
-                onSelect={selectMode ? () => toggleSelect(building.id) : undefined}
+                onSelect={selectMode ? () => toggleSelect(building.buildingId) : undefined}
                 onEdit={() => setEditTarget(building)}
-                onLongPress={() => handleLongPress(building.id)}
+                onLongPress={() => handleLongPress(building.buildingId)}
               />
             </div>
           ))}

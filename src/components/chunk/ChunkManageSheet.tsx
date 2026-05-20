@@ -46,6 +46,7 @@ const MERGE_STATUS_CONFIG: Record<
   MergedScanStatus,
   { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof CheckCircle2 }
 > = {
+  IDLE: { label: "스캔 필요", variant: "outline", icon: Clock },
   MERGING: { label: "층 구성 중", variant: "secondary", icon: Clock },
   MERGED: { label: "층 구성됨", variant: "default", icon: CheckCircle2 },
   MERGE_FAILED: { label: "층 구성 실패", variant: "destructive", icon: XCircle },

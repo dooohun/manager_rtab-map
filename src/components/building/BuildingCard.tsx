@@ -20,7 +20,7 @@ export function BuildingCard({ building, onSelect, onEdit, onLongPress }: Buildi
   function handleClick() {
     if (didLongPress.current) { didLongPress.current = false; return; }
     if (onSelect) onSelect();
-    else navigate(`/buildings/${building.id}`);
+    else navigate(`/buildings/${building.buildingId}`);
   }
 
   function handlePointerDown() {

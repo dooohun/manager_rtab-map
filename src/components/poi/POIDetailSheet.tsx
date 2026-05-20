@@ -20,16 +20,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { usePoiStore } from "@/stores";
-import type { PoiCategory } from "@/types";
 
-const POI_CATEGORY_LABELS: Record<PoiCategory, string> = {
-  CLASSROOM: "강의실",
-  OFFICE: "사무실",
-  RESTROOM: "화장실",
-  EXIT: "출구",
-  ELEVATOR: "엘리베이터",
-  STAIRCASE: "계단",
-  OTHER: "기타",
+const POI_CATEGORY_LABELS: Record<string, string> = {
+  classroom: "강의실",
+  office: "사무실",
+  restroom: "화장실",
+  entrance: "출구/입구",
+  exit: "출구",
+  elevator: "엘리베이터",
+  staircase: "계단",
+  door: "문",
+  other: "기타",
 };
 
 interface POIDetailSheetProps {
@@ -42,7 +43,7 @@ export function POIDetailSheet({ poiId, open, onOpenChange }: POIDetailSheetProp
   const pois = usePoiStore((s) => s.pois);
   const deletePoi = usePoiStore((s) => s.deletePoi);
 
-  const poi = pois.find((p) => p.nodeId === poiId) ?? null;
+  const poi = pois.find((p) => p.poiId === poiId) ?? null;
 
   async function handleDelete() {
     if (!poiId) return;
@@ -50,11 +51,14 @@ export function POIDetailSheet({ poiId, open, onOpenChange }: POIDetailSheetProp
     onOpenChange(false);
   }
 
-  function formatPoint(x: number, y: number, z: number): string {
-    return `(${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)})`;
+  function formatPoint(p: { x: number; y: number; z: number } | null): string {
+    if (!p) return "-";
+    return `(${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})`;
   }
 
   if (!poi) return null;
+
+  const categoryLabel = POI_CATEGORY_LABELS[poi.category?.toLowerCase()] ?? poi.category;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -74,20 +78,30 @@ export function POIDetailSheet({ poiId, open, onOpenChange }: POIDetailSheetProp
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">카테고리</span>
-              <Badge variant="outline">{POI_CATEGORY_LABELS[poi.category]}</Badge>
+              <Badge variant="outline">{categoryLabel}</Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">층</span>
-              <span className="text-sm">
-                {poi.floorLevel}층 ({poi.floorName})
-              </span>
+              <span className="text-sm text-muted-foreground">라벨</span>
+              <span className="text-sm">{poi.label}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">좌표</span>
+              <span className="text-sm text-muted-foreground">표시 좌표</span>
               <code className="text-xs bg-muted px-2 py-1 rounded">
-                {formatPoint(poi.x, poi.y, poi.z)}
+                {formatPoint(poi.displayPoint)}
               </code>
             </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">연결된 노드</span>
+              <code className="text-xs bg-muted px-2 py-1 rounded">
+                {poi.routeNodeId ? `${poi.routeNodeId.slice(0, 8)}…` : "없음"}
+              </code>
+            </div>
+            {poi.needsReview && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">검토 필요</span>
+                <Badge variant="destructive">예</Badge>
+              </div>
+            )}
           </div>
 
           <Separator />

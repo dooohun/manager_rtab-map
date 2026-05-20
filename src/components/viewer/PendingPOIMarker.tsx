@@ -11,7 +11,7 @@ export function PendingPOIMarker() {
   if (!pendingPosition) return null;
 
   // 선택된 층의 높이 가져오기
-  const selectedFloor = building?.floors.find((f) => f.id === selectedFloorId);
+  const selectedFloor = building?.floors.find((f) => f.floorId === selectedFloorId);
   const floorHeight = selectedFloor?.height ?? 0;
 
   // Three.js 좌표계: (x, z, y) - API의 (x, y, z)에서 변환

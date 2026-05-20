@@ -8,6 +8,8 @@ import {
   MapPin,
   Layers,
   Box,
+  ArrowUpDown,
+  Hexagon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,13 +34,17 @@ import { EditBuildingDialog } from "@/components/building";
 import { FloorTable } from "@/components/floor";
 import { Viewer3DTab } from "@/components/viewer";
 import { POITable } from "@/components/poi";
+import { ConnectorsTab } from "@/components/connector";
+import { LobbyTab } from "@/components/lobby";
 import { useHeader } from "@/hooks/use-header";
 
-type TabId = "floors" | "pois" | "viewer3d";
+type TabId = "floors" | "pois" | "connectors" | "lobby" | "viewer3d";
 
 const TABS: { id: TabId; label: string; icon: typeof Layers }[] = [
   { id: "floors", label: "층", icon: Layers },
   { id: "pois", label: "POI", icon: MapPin },
+  { id: "connectors", label: "수직연결", icon: ArrowUpDown },
+  { id: "lobby", label: "로비", icon: Hexagon },
   { id: "viewer3d", label: "3D", icon: Box },
 ];
 
@@ -95,7 +101,7 @@ export default function BuildingDetailPage() {
         ),
       });
     }
-  }, [currentBuilding?.id]);
+  }, [currentBuilding?.buildingId]);
 
   async function handleDelete() {
     if (!id) return;
@@ -126,12 +132,22 @@ export default function BuildingDetailPage() {
         )}
         {activeTab === "floors" && (
           <div className="p-3 sm:p-4 max-w-3xl mx-auto">
-            <FloorTable buildingId={currentBuilding.id} floors={currentBuilding.floors} />
+            <FloorTable buildingId={currentBuilding.buildingId} floors={currentBuilding.floors} />
           </div>
         )}
         {activeTab === "pois" && (
           <div className="p-3 sm:p-4 max-w-3xl mx-auto">
-            <POITable buildingId={currentBuilding.id} />
+            <POITable buildingId={currentBuilding.buildingId} />
+          </div>
+        )}
+        {activeTab === "connectors" && (
+          <div className="p-3 sm:p-4 max-w-3xl mx-auto">
+            <ConnectorsTab buildingId={currentBuilding.buildingId} />
+          </div>
+        )}
+        {activeTab === "lobby" && (
+          <div className="p-3 sm:p-4 max-w-5xl mx-auto">
+            <LobbyTab buildingId={currentBuilding.buildingId} />
           </div>
         )}
       </div>

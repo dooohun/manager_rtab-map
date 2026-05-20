@@ -7,6 +7,7 @@ const STATUS_CONFIG: Record<MergedScanStatus, {
   variant: "default" | "secondary" | "destructive" | "outline";
   spinning?: boolean;
 }> = {
+  IDLE:         { label: "스캔 필요",      variant: "outline" },
   MERGING:      { label: "층 구성 중",    variant: "secondary",    spinning: true },
   MERGED:       { label: "층 구성됨",     variant: "outline" },
   MERGE_FAILED: { label: "층 구성 실패",   variant: "destructive" },
@@ -21,15 +22,14 @@ interface MergeBadgeProps {
 }
 
 export function MergeBadge({ status }: MergeBadgeProps) {
-  if (!status) {
+  const config = status ? STATUS_CONFIG[status] : undefined;
+  if (!config) {
     return (
       <Badge variant="outline" className="text-muted-foreground text-[10px] px-1.5 py-0">
-        스캔 필요
+        {status ?? "스캔 필요"}
       </Badge>
     );
   }
-
-  const config = STATUS_CONFIG[status];
 
   return (
     <Badge variant={config.variant} className="gap-1 text-[10px] px-1.5 py-0">

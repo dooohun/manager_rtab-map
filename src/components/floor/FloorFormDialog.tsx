@@ -105,12 +105,12 @@ function EditFloorForm({ buildingId, floor, onOpenChange }: { buildingId: string
 
   const form = useForm<FloorUpdateFormValues>({
     resolver: zodResolver(floorUpdateSchema) as Resolver<FloorUpdateFormValues>,
-    defaultValues: { name: floor.name, height: floor.height },
+    defaultValues: { name: floor.name, height: floor.height ?? undefined },
   });
 
   async function onSubmit(values: FloorUpdateFormValues) {
     try {
-      await updateFloor(floor.id, { name: values.name || undefined, height: values.height }, buildingId);
+      await updateFloor(floor.floorId, { name: values.name || undefined, height: values.height }, buildingId);
       onOpenChange(false);
     } catch {
       // Error handled by interceptor

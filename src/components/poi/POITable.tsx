@@ -7,17 +7,19 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { usePoiStore } from "@/stores";
-import type { PoiResponse, PoiCategory } from "@/types";
+import { usePoiStore, useViewerStore } from "@/stores";
+import type { PoiResponse } from "@/types";
 
-const POI_CATEGORY_LABELS: Record<PoiCategory, string> = {
-  CLASSROOM: "강의실", OFFICE: "사무실", RESTROOM: "화장실",
-  EXIT: "출구", ELEVATOR: "엘리베이터", STAIRCASE: "계단", OTHER: "기타",
+const POI_CATEGORY_LABELS: Record<string, string> = {
+  classroom: "강의실", office: "사무실", restroom: "화장실",
+  entrance: "출구/입구", exit: "출구", elevator: "엘리베이터",
+  staircase: "계단", door: "문", other: "기타",
 };
 
-const POI_CATEGORY_COLORS: Record<PoiCategory, "default" | "secondary" | "destructive" | "outline"> = {
-  CLASSROOM: "default", OFFICE: "secondary", RESTROOM: "outline",
-  EXIT: "destructive", ELEVATOR: "default", STAIRCASE: "default", OTHER: "outline",
+const POI_CATEGORY_COLORS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  classroom: "default", office: "secondary", restroom: "outline",
+  entrance: "destructive", exit: "destructive", elevator: "default",
+  staircase: "default", door: "secondary", other: "outline",
 };
 
 interface POITableProps {
@@ -53,7 +55,7 @@ export function POITable({ buildingId }: POITableProps) {
 
   function toggleSelectAll() {
     const allSelected = pois.length > 0 && selectedIds.size === pois.length;
-    setSelectedIds(allSelected ? new Set() : new Set(pois.map((p) => p.nodeId)));
+    setSelectedIds(allSelected ? new Set() : new Set(pois.map((p) => p.poiId)));
   }
 
   async function handleBatchDelete() {
@@ -102,12 +104,12 @@ export function POITable({ buildingId }: POITableProps) {
         <div className="space-y-2">
           {pois.map((poi) => (
             <POICard
-              key={poi.nodeId}
+              key={poi.poiId}
               poi={poi}
               selectMode={selectMode}
-              isSelected={selectedIds.has(poi.nodeId)}
-              onToggleSelect={() => toggleSelect(poi.nodeId)}
-              onLongPress={() => handleLongPress(poi.nodeId)}
+              isSelected={selectedIds.has(poi.poiId)}
+              onToggleSelect={() => toggleSelect(poi.poiId)}
+              onLongPress={() => handleLongPress(poi.poiId)}
             />
           ))}
         </div>
@@ -133,6 +135,7 @@ function POICard({ poi, selectMode, isSelected, onToggleSelect, onLongPress }: {
   poi: PoiResponse; selectMode: boolean; isSelected: boolean;
   onToggleSelect: () => void; onLongPress: () => void;
 }) {
+  const building = useViewerStore((s) => s.building);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didLongPress = useRef(false);
 
@@ -147,6 +150,11 @@ function POICard({ poi, selectMode, isSelected, onToggleSelect, onLongPress }: {
     if (didLongPress.current) { didLongPress.current = false; return; }
     if (selectMode) onToggleSelect();
   }
+
+  const floor = building?.floors.find((f) => f.floorId === poi.floorId);
+  const categoryKey = poi.category?.toLowerCase() ?? "other";
+  const categoryLabel = POI_CATEGORY_LABELS[categoryKey] ?? poi.category;
+  const categoryColor = POI_CATEGORY_COLORS[categoryKey] ?? "outline";
 
   return (
     <div
@@ -163,12 +171,14 @@ function POICard({ poi, selectMode, isSelected, onToggleSelect, onLongPress }: {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate">{poi.name}</p>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            <Badge variant={POI_CATEGORY_COLORS[poi.category]} className="text-[10px] px-1.5 py-0">
-              {POI_CATEGORY_LABELS[poi.category]}
+            <Badge variant={categoryColor} className="text-[10px] px-1.5 py-0">
+              {categoryLabel}
             </Badge>
-            <span className="text-[11px] text-muted-foreground">
-              {poi.floorLevel > 0 ? `${poi.floorLevel}F` : `B${Math.abs(poi.floorLevel)}F`} {poi.floorName}
-            </span>
+            {floor && (
+              <span className="text-[11px] text-muted-foreground">
+                {floor.level > 0 ? `${floor.level}F` : `B${Math.abs(floor.level)}F`} {floor.name}
+              </span>
+            )}
           </div>
         </div>
       </div>

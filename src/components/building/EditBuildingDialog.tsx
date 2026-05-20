@@ -47,7 +47,7 @@ export function EditBuildingDialog({ building, open, onOpenChange }: EditBuildin
 
   async function onSubmit(values: BuildingUpdateFormValues) {
     try {
-      await updateBuilding(building.id, {
+      await updateBuilding(building.buildingId, {
         name: values.name || undefined,
         description: values.description || undefined,
         latitude: typeof values.latitude === "number" ? values.latitude : undefined,

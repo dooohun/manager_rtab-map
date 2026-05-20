@@ -3,7 +3,6 @@ import { useViewerStore, useBuildingStore, usePoiStore, useGraphEditorStore } fr
 import { PointCloudViewer } from "./PointCloudViewer";
 import { ViewerToolbar } from "./ViewerToolbar";
 import { CreatePOIDialog, POIDetailSheet } from "@/components/poi";
-import { PassageNodeDialog } from "./PassageNodeDialog";
 import { getFloorPlyUrl } from "@/api/floors";
 import type { FloorResponse } from "@/types";
 
@@ -22,6 +21,7 @@ export function Viewer3DTab({ floors }: Viewer3DTabProps) {
   const fetchPois = usePoiStore((s) => s.fetchPois);
   const poiReset = usePoiStore((s) => s.reset);
   const selectedFloorId = useViewerStore((s) => s.selectedFloorId);
+  const selectedAreaId = useViewerStore((s) => s.selectedAreaId);
   const setShowPOI = useViewerStore((s) => s.setShowPOI);
   const setShowPointcloud = useViewerStore((s) => s.setShowPointcloud);
   const setEditorActive = useGraphEditorStore((s) => s.setEditorActive);
@@ -37,7 +37,7 @@ export function Viewer3DTab({ floors }: Viewer3DTabProps) {
     setShowPOI(true);
     setShowPointcloud(true);
     setEditorActive(true);
-    if (currentBuilding?.id) fetchPois(currentBuilding.id).catch(console.error);
+    if (currentBuilding?.buildingId) fetchPois(currentBuilding.buildingId).catch(console.error);
     return () => { viewerReset(); poiReset(); graphReset(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [floors, currentBuilding]);
@@ -48,8 +48,10 @@ export function Viewer3DTab({ floors }: Viewer3DTabProps) {
   }, [selectedFloorId, setPlyUrl]);
 
   useEffect(() => {
-    if (selectedFloorId) fetchGraph(selectedFloorId).catch(console.error);
-  }, [selectedFloorId, fetchGraph]);
+    if (selectedFloorId) {
+      fetchGraph(selectedFloorId, selectedAreaId ?? undefined).catch(console.error);
+    }
+  }, [selectedFloorId, selectedAreaId, fetchGraph]);
 
   useEffect(() => {
     if (pendingPoiTarget) setCreatePoiDialogOpen(true);
@@ -60,10 +62,9 @@ export function Viewer3DTab({ floors }: Viewer3DTabProps) {
       <PointCloudViewer />
       <ViewerToolbar />
       {currentBuilding && (
-        <CreatePOIDialog buildingId={currentBuilding.id} open={createPoiDialogOpen} onOpenChange={setCreatePoiDialogOpen} />
+        <CreatePOIDialog buildingId={currentBuilding.buildingId} open={createPoiDialogOpen} onOpenChange={setCreatePoiDialogOpen} />
       )}
       <POIDetailSheet poiId={selectedPoiId} open={selectedPoiId !== null} onOpenChange={(open) => { if (!open) selectPoi(null); }} />
-      <PassageNodeDialog />
     </div>
   );
 }
