@@ -1,8 +1,19 @@
 import { useEffect, useState } from "react";
 import {
-  Orbit, Scan, Settings2,
-  Hand, Plus, GitBranch, Trash2, RotateCcw, MapPin, X, HelpCircle, Link,
-  Square, Check,
+  Orbit,
+  Scan,
+  Settings2,
+  Hand,
+  Plus,
+  GitBranch,
+  Trash2,
+  RotateCcw,
+  MapPin,
+  X,
+  HelpCircle,
+  Link,
+  Square,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,11 +21,15 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { updateNode } from "@/api/graph";
-import { useViewerStore, usePoiStore, useGraphEditorStore, usePolygonStore, useConnectorStore } from "@/stores";
+import {
+  useViewerStore,
+  usePoiStore,
+  useGraphEditorStore,
+  usePolygonStore,
+  useConnectorStore,
+} from "@/stores";
 import { FloorSelector } from "./FloorSelector";
 import { AreaSelector } from "./AreaSelector";
 import type { NodeType } from "@/types";
@@ -64,6 +79,9 @@ export function ViewerToolbar() {
   const commitDraftAsCorner = usePolygonStore((s) => s.commitDraftAsCorner);
   const clearDraft = usePolygonStore((s) => s.clearDraft);
   const popDraftVertex = usePolygonStore((s) => s.popDraftVertex);
+  const selectedPolygonId = usePolygonStore((s) => s.selectedPolygonId);
+  const selectPolygon = usePolygonStore((s) => s.selectPolygon);
+  const deletePolygon = usePolygonStore((s) => s.deletePolygon);
   const verticalType = useConnectorStore((s) => s.verticalType);
   const verticalKey = useConnectorStore((s) => s.verticalKey);
   const setVerticalType = useConnectorStore((s) => s.setVerticalType);
@@ -71,7 +89,7 @@ export function ViewerToolbar() {
 
   const [helpOpen, setHelpOpen] = useState(false);
   const [widthInput, setWidthInput] = useState("");
-  const hasSelection = !!(selectedNodeId || selectedEdgeId);
+  const hasSelection = !!(selectedNodeId || selectedEdgeId || selectedPolygonId);
   const longPressNode = nodes.find((n) => n.nodeId === longPressNodeId);
   const widthDialogEdge = edges.find((e) => e.edgeId === edgeWidthDialogId);
 
@@ -87,7 +105,9 @@ export function ViewerToolbar() {
       await updateNode(longPressNodeId, { nodeType: newType });
       await fetchGraph(selectedFloorId, selectedAreaId ?? undefined);
       toast.success("노드 타입이 변경되었습니다.");
-    } catch { /* interceptor */ }
+    } catch {
+      /* interceptor */
+    }
     setLongPressNodeId(null);
   }
 
@@ -119,16 +139,33 @@ export function ViewerToolbar() {
         </div>
         <div className="flex-1" />
         <div className="flex bg-background/90 backdrop-blur rounded-md border shadow-sm pointer-events-auto">
-          <Button variant={viewMode === "orbit" ? "default" : "ghost"} size="icon" className="h-8 w-8 rounded-r-none" aria-label="궤도 뷰" onClick={() => setViewMode("orbit")}>
+          <Button
+            variant={viewMode === "orbit" ? "default" : "ghost"}
+            size="icon"
+            className="h-8 w-8 rounded-r-none"
+            aria-label="궤도 뷰"
+            onClick={() => setViewMode("orbit")}
+          >
             <Orbit className="h-4 w-4" />
           </Button>
-          <Button variant={viewMode === "top-down" ? "default" : "ghost"} size="icon" className="h-8 w-8 rounded-l-none" aria-label="탑뷰" onClick={() => setViewMode("top-down")}>
+          <Button
+            variant={viewMode === "top-down" ? "default" : "ghost"}
+            size="icon"
+            className="h-8 w-8 rounded-l-none"
+            aria-label="탑뷰"
+            onClick={() => setViewMode("top-down")}
+          >
             <Scan className="h-4 w-4" />
           </Button>
         </div>
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="secondary" size="icon" className="h-8 w-8 shadow-sm pointer-events-auto" aria-label="포인트 크기">
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-8 w-8 shadow-sm pointer-events-auto"
+              aria-label="포인트 크기"
+            >
               <Settings2 className="h-4 w-4" />
             </Button>
           </PopoverTrigger>
@@ -136,9 +173,17 @@ export function ViewerToolbar() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-xs">포인트 크기</Label>
-                <span className="text-[10px] font-mono text-muted-foreground">{pointSize.toFixed(2)}</span>
+                <span className="text-[10px] font-mono text-muted-foreground">
+                  {pointSize.toFixed(2)}
+                </span>
               </div>
-              <Slider value={[pointSize]} onValueChange={([v]) => setPointSize(v)} min={0.01} max={0.2} step={0.005} />
+              <Slider
+                value={[pointSize]}
+                onValueChange={([v]) => setPointSize(v)}
+                min={0.01}
+                max={0.2}
+                step={0.005}
+              />
             </div>
           </PopoverContent>
         </Popover>
@@ -148,26 +193,50 @@ export function ViewerToolbar() {
       {selectedFloorId && (
         <div className="absolute top-14 left-2 z-10 flex flex-col gap-1">
           <div className="flex flex-col bg-background/90 backdrop-blur rounded-md border shadow-sm">
-            <ToolIcon active={editorMode === "view"} onClick={() => setEditorMode("view")} aria-label="보기">
+            <ToolIcon
+              active={editorMode === "view"}
+              onClick={() => setEditorMode("view")}
+              aria-label="보기"
+            >
               <Hand className="h-4 w-4" />
             </ToolIcon>
-            <ToolIcon active={editorMode === "add-node"} onClick={() => setEditorMode("add-node")} aria-label="노드 추가">
+            <ToolIcon
+              active={editorMode === "add-node"}
+              onClick={() => setEditorMode("add-node")}
+              aria-label="노드 추가"
+            >
               <Plus className="h-4 w-4" />
             </ToolIcon>
-            <ToolIcon active={editorMode === "add-edge"} onClick={() => setEditorMode("add-edge")} aria-label="엣지 추가">
+            <ToolIcon
+              active={editorMode === "add-edge"}
+              onClick={() => setEditorMode("add-edge")}
+              aria-label="엣지 추가"
+            >
               <GitBranch className="h-4 w-4" />
             </ToolIcon>
-            <ToolIcon active={isPlacementMode} onClick={() => isPlacementMode ? cancelPlacement() : setPlacementMode(true)} aria-label="POI 배치">
+            <ToolIcon
+              active={isPlacementMode}
+              onClick={() => (isPlacementMode ? cancelPlacement() : setPlacementMode(true))}
+              aria-label="POI 배치"
+            >
               {isPlacementMode ? <X className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}
             </ToolIcon>
-            <ToolIcon active={editorMode === "add-corner"} onClick={() => setEditorMode("add-corner")} aria-label="코너">
+            <ToolIcon
+              active={editorMode === "add-corner"}
+              onClick={() => setEditorMode("add-corner")}
+              aria-label="코너"
+            >
               <Square className="h-4 w-4" />
             </ToolIcon>
           </div>
 
           {/* Auto-connect — same width as toolbar, icon toggle */}
           {editorMode === "add-node" && (
-            <ToolIcon active={autoConnect} onClick={() => setAutoConnect(!autoConnect)} aria-label="자동 연결">
+            <ToolIcon
+              active={autoConnect}
+              onClick={() => setAutoConnect(!autoConnect)}
+              aria-label="자동 연결"
+            >
               <Link className="h-4 w-4" />
             </ToolIcon>
           )}
@@ -175,25 +244,27 @@ export function ViewerToolbar() {
           {/* nodeType selector — add-node 모드에서만 표시 */}
           {editorMode === "add-node" && (
             <div className="flex flex-col bg-background/90 backdrop-blur rounded-md border shadow-sm mt-2 text-[10px]">
-              {(["corridor", "junction", "endpoint", "poi_attach", "vertical"] as const).map((nt) => (
-                <button
-                  key={nt}
-                  className={`w-9 h-7 transition-colors rounded-sm ${
-                    nodeTypeToPlace === nt
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-accent text-muted-foreground"
-                  }`}
-                  onClick={() => setNodeTypeToPlace(nt)}
-                  aria-label={nt}
-                  title={nt}
-                >
-                  {nt === "corridor" && "복도"}
-                  {nt === "junction" && "교차"}
-                  {nt === "endpoint" && "끝점"}
-                  {nt === "poi_attach" && "POI"}
-                  {nt === "vertical" && "↕"}
-                </button>
-              ))}
+              {(["corridor", "junction", "endpoint", "poi_attach", "vertical"] as const).map(
+                (nt) => (
+                  <button
+                    key={nt}
+                    className={`w-9 h-7 transition-colors rounded-sm ${
+                      nodeTypeToPlace === nt
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-accent text-muted-foreground"
+                    }`}
+                    onClick={() => setNodeTypeToPlace(nt)}
+                    aria-label={nt}
+                    title={nt}
+                  >
+                    {nt === "corridor" && "복도"}
+                    {nt === "junction" && "교차"}
+                    {nt === "endpoint" && "끝점"}
+                    {nt === "poi_attach" && "POI"}
+                    {nt === "vertical" && "↕"}
+                  </button>
+                ),
+              )}
             </div>
           )}
         </div>
@@ -270,10 +341,24 @@ export function ViewerToolbar() {
 
       {/* Selection delete */}
       {hasSelection && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10">
-          <Button variant="destructive" size="sm" className="shadow-lg text-xs h-9 gap-1.5 px-4" onClick={() => deleteSelected()}>
+        <div className="absolute bottom-26 left-1/2 -translate-x-1/2 z-10">
+          <Button
+            variant="destructive"
+            size="sm"
+            className="shadow-lg text-xs h-9 gap-1.5 px-4"
+            onClick={async () => {
+              if (selectedPolygonId) {
+                if (window.confirm("선택한 폴리곤을 삭제하시겠습니까?")) {
+                  await deletePolygon(selectedPolygonId);
+                  selectPolygon(null);
+                }
+              } else {
+                deleteSelected();
+              }
+            }}
+          >
             <Trash2 className="h-3.5 w-3.5" />
-            선택 항목 삭제
+            {selectedPolygonId ? "폴리곤 삭제" : "선택 항목 삭제"}
           </Button>
         </div>
       )}
@@ -282,17 +367,34 @@ export function ViewerToolbar() {
       {editorMode === "add-corner" && (
         <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 bg-background/90 backdrop-blur border rounded-md shadow-lg px-3 py-1.5">
           <span className="text-xs text-muted-foreground">
-            코너 vertex: <span className="font-mono font-medium text-foreground">{draftVertices.length}</span>
+            코너 vertex:{" "}
+            <span className="font-mono font-medium text-foreground">{draftVertices.length}</span>
           </span>
           <Button
-            size="sm" variant="default" className="h-7 text-xs gap-1"
+            size="sm"
+            variant="default"
+            className="h-7 text-xs gap-1"
             disabled={draftVertices.length < 3 || !selectedAreaId}
             onClick={() => selectedAreaId && commitDraftAsCorner(selectedAreaId)}
           >
             <Check className="h-3 w-3" /> 닫기
           </Button>
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={popDraftVertex} disabled={draftVertices.length === 0}>↶</Button>
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={clearDraft} disabled={draftVertices.length === 0}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={popDraftVertex}
+            disabled={draftVertices.length === 0}
+          >
+            ↶
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={clearDraft}
+            disabled={draftVertices.length === 0}
+          >
             <X className="h-3 w-3" />
           </Button>
         </div>
@@ -325,7 +427,12 @@ export function ViewerToolbar() {
       {/* Edge hint */}
       {editorMode === "add-edge" && edgeSourceNodeId && !hasSelection && (
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10">
-          <Button variant="secondary" size="sm" className="shadow-lg text-xs h-7 gap-1" onClick={() => setEdgeSource(null)}>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="shadow-lg text-xs h-7 gap-1"
+            onClick={() => setEdgeSource(null)}
+          >
             도착 노드 탭 · <span className="text-muted-foreground">Esc 취소</span>
           </Button>
         </div>
@@ -335,25 +442,39 @@ export function ViewerToolbar() {
       {selectedAreaId && (
         <div className="absolute bottom-2 right-2 z-10">
           <Button
-            variant="ghost" size="sm"
+            variant="ghost"
+            size="sm"
             className="h-7 text-[10px] text-muted-foreground hover:text-destructive"
-            onClick={() => { if (window.confirm("이 area의 수동 편집분을 모두 삭제하시겠습니까?")) clearManualGraph(selectedAreaId); }}
+            onClick={() => {
+              if (window.confirm("이 area의 수동 편집분을 모두 삭제하시겠습니까?"))
+                clearManualGraph(selectedAreaId);
+            }}
           >
-            <RotateCcw className="h-3 w-3 mr-1" />수동 편집 초기화
+            <RotateCcw className="h-3 w-3 mr-1" />
+            수동 편집 초기화
           </Button>
         </div>
       )}
 
       {/* Node type change dialog (long press) */}
-      <Dialog open={!!longPressNodeId} onOpenChange={(open) => { if (!open) setLongPressNodeId(null); }}>
+      <Dialog
+        open={!!longPressNodeId}
+        onOpenChange={(open) => {
+          if (!open) setLongPressNodeId(null);
+        }}
+      >
         <DialogContent className="sm:max-w-[280px]">
           <DialogHeader>
             <DialogTitle className="text-sm">노드 타입 변경</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">
-              현재: <span className="font-medium text-foreground">
-                {longPressNode ? (PLACEABLE_TYPES.find((t) => t.value === longPressNode.nodeType)?.label ?? longPressNode.nodeType) : "-"}
+              현재:{" "}
+              <span className="font-medium text-foreground">
+                {longPressNode
+                  ? (PLACEABLE_TYPES.find((t) => t.value === longPressNode.nodeType)?.label ??
+                    longPressNode.nodeType)
+                  : "-"}
               </span>
             </p>
             <div className="grid grid-cols-2 gap-1.5">
@@ -369,7 +490,12 @@ export function ViewerToolbar() {
                 </Button>
               ))}
             </div>
-            <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => setLongPressNodeId(null)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-xs"
+              onClick={() => setLongPressNodeId(null)}
+            >
               취소
             </Button>
           </div>
@@ -377,7 +503,12 @@ export function ViewerToolbar() {
       </Dialog>
 
       {/* Edge corridor width dialog (double click) */}
-      <Dialog open={!!edgeWidthDialogId} onOpenChange={(open) => { if (!open) setEdgeWidthDialogId(null); }}>
+      <Dialog
+        open={!!edgeWidthDialogId}
+        onOpenChange={(open) => {
+          if (!open) setEdgeWidthDialogId(null);
+        }}
+      >
         <DialogContent className="sm:max-w-[300px]">
           <DialogHeader>
             <DialogTitle className="text-sm">복도 폭 설정</DialogTitle>
@@ -388,7 +519,9 @@ export function ViewerToolbar() {
               {widthDialogEdge && (
                 <>
                   {" · 길이: "}
-                  <span className="font-mono text-foreground">{widthDialogEdge.lengthM.toFixed(2)}m</span>
+                  <span className="font-mono text-foreground">
+                    {widthDialogEdge.lengthM.toFixed(2)}m
+                  </span>
                 </>
               )}
             </p>
@@ -406,7 +539,12 @@ export function ViewerToolbar() {
               <p className="text-[10px] text-muted-foreground">빈 칸으로 두면 폭이 해제됩니다.</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => setEdgeWidthDialogId(null)}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 text-xs"
+                onClick={() => setEdgeWidthDialogId(null)}
+              >
                 취소
               </Button>
               <Button size="sm" className="flex-1 text-xs" onClick={handleApplyWidth}>
@@ -420,13 +558,23 @@ export function ViewerToolbar() {
   );
 }
 
-function ToolIcon({ active, onClick, children, "aria-label": ariaLabel }: {
-  active: boolean; onClick: () => void; children: React.ReactNode; "aria-label": string;
+function ToolIcon({
+  active,
+  onClick,
+  children,
+  "aria-label": ariaLabel,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  "aria-label": string;
 }) {
   return (
     <button
       className={`flex items-center justify-center w-9 h-9 transition-colors rounded-md ${
-        active ? "bg-primary text-primary-foreground" : "bg-background/90 backdrop-blur border shadow-sm hover:bg-accent text-foreground"
+        active
+          ? "bg-primary text-primary-foreground"
+          : "bg-background/90 backdrop-blur border shadow-sm hover:bg-accent text-foreground"
       }`}
       onClick={onClick}
       aria-label={ariaLabel}
@@ -436,7 +584,15 @@ function ToolIcon({ active, onClick, children, "aria-label": ariaLabel }: {
   );
 }
 
-function HelpSection({ icon, title, items }: { icon: React.ReactNode; title: string; items: string[] }) {
+function HelpSection({
+  icon,
+  title,
+  items,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  items: string[];
+}) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-2 font-medium">
@@ -445,7 +601,9 @@ function HelpSection({ icon, title, items }: { icon: React.ReactNode; title: str
       </div>
       <ul className="space-y-1 text-xs text-muted-foreground pl-6">
         {items.map((item, i) => (
-          <li key={i} className="list-disc">{item}</li>
+          <li key={i} className="list-disc">
+            {item}
+          </li>
         ))}
       </ul>
     </div>

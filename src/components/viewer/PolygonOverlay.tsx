@@ -21,12 +21,18 @@ export function PolygonOverlay() {
   const draftVertices = usePolygonStore((s) => s.draftVertices);
   const fetchPolygons = usePolygonStore((s) => s.fetchPolygons);
   const updatePolygon = usePolygonStore((s) => s.updatePolygon);
+  const selectedPolygonId = usePolygonStore((s) => s.selectedPolygonId);
+  const selectPolygon = usePolygonStore((s) => s.selectPolygon);
 
   const { camera, raycaster, pointer } = useThree();
 
   useEffect(() => {
     if (selectedAreaId) fetchPolygons(selectedAreaId);
   }, [selectedAreaId, fetchPolygons]);
+
+  useEffect(() => {
+    if (editorMode !== "view") selectPolygon(null);
+  }, [editorMode, selectPolygon]);
 
   // Drag state — saved polygon vertex 위치 미세조정
   const [dragRef, setDragRef] = useState<{ polygonId: string; vertexIdx: number } | null>(null);
@@ -52,6 +58,12 @@ export function PolygonOverlay() {
       setDragPos(out.clone());
     }
   });
+
+  const handlePolygonClick = useCallback((e: ThreeEvent<MouseEvent>, polygonId: string) => {
+    if (editorMode !== "view") return;
+    e.stopPropagation();
+    selectPolygon(selectedPolygonId === polygonId ? null : polygonId);
+  }, [editorMode, selectPolygon, selectedPolygonId]);
 
   const handleVertexDown = useCallback((e: ThreeEvent<PointerEvent>, polygonId: string, vertexIdx: number) => {
     if (editorMode !== "view" && editorMode !== "select" && editorMode !== "add-corner") return;
@@ -112,25 +124,38 @@ export function PolygonOverlay() {
 
   return (
     <group>
-      {savedPolygons.map(({ polygonId, points, rawPoints }) => (
-        <group key={polygonId}>
-          <Line points={points} color="#f59e0b" lineWidth={2.5} depthTest={false} />
-          {rawPoints.map((pt, idx) => (
-            <mesh
-              key={`${polygonId}-v-${idx}`}
-              position={pt}
-              renderOrder={998}
-              onPointerDown={(e) => handleVertexDown(e, polygonId, idx)}
-              onPointerUp={handleVertexUp}
-              onPointerOver={() => { document.body.style.cursor = "grab"; }}
+      {savedPolygons.map(({ polygonId, points, rawPoints }) => {
+        const isSelected = selectedPolygonId === polygonId;
+        const lineColor = isSelected ? "#ef4444" : "#f59e0b";
+        const sphereColor = isSelected ? "#ef4444" : "#f59e0b";
+        return (
+          <group key={polygonId}>
+            <Line
+              points={points}
+              color={lineColor}
+              lineWidth={isSelected ? 3.5 : 2.5}
+              depthTest={false}
+              onClick={(e) => handlePolygonClick(e, polygonId)}
+              onPointerOver={() => { if (editorMode === "view") document.body.style.cursor = "pointer"; }}
               onPointerOut={() => { document.body.style.cursor = "auto"; }}
-            >
-              <sphereGeometry args={[0.15, 16, 16]} />
-              <meshBasicMaterial color="#f59e0b" depthTest={false} transparent opacity={0.95} />
-            </mesh>
-          ))}
-        </group>
-      ))}
+            />
+            {rawPoints.map((pt, idx) => (
+              <mesh
+                key={`${polygonId}-v-${idx}`}
+                position={pt}
+                renderOrder={998}
+                onPointerDown={(e) => handleVertexDown(e, polygonId, idx)}
+                onPointerUp={handleVertexUp}
+                onPointerOver={() => { document.body.style.cursor = "grab"; }}
+                onPointerOut={() => { document.body.style.cursor = "auto"; }}
+              >
+                <sphereGeometry args={[0.15, 16, 16]} />
+                <meshBasicMaterial color={sphereColor} depthTest={false} transparent opacity={0.95} />
+              </mesh>
+            ))}
+          </group>
+        );
+      })}
 
       {editorMode === "add-corner" && draftPoints.length >= 2 && (
         <Line points={draftPoints} color="#facc15" lineWidth={3} depthTest={false} />

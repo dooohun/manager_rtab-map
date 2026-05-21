@@ -18,7 +18,7 @@ export default function App() {
             </Route>
           </Routes>
         </HashRouter>
-        <Toaster richColors position="bottom-center" style={{ bottom: "60px" }} />
+        <Toaster richColors position="top-right" style={{ bottom: "60px" }} />
       </TooltipProvider>
     </ThemeProvider>
   );

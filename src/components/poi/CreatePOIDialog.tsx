@@ -1,12 +1,7 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { MapPin } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -44,11 +39,7 @@ interface CreatePOIDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function CreatePOIDialog({
-  buildingId,
-  open,
-  onOpenChange,
-}: CreatePOIDialogProps) {
+export function CreatePOIDialog({ buildingId, open, onOpenChange }: CreatePOIDialogProps) {
   const createPoi = usePoiStore((s) => s.createPoi);
   const pendingPoiTarget = usePoiStore((s) => s.pendingPoiTarget);
   const cancelPlacement = usePoiStore((s) => s.cancelPlacement);
